@@ -16,11 +16,14 @@ jar --create --file "$OUT/$NAME.jar" --main-class com.trace.pc.TracePc -C "$OUT/
 if command -v jpackage >/dev/null 2>&1; then
   APPDIR="$OUT/${NAME}-app"
   rm -rf "$APPDIR" "$OUT/$NAME.zip" "$OUT/$NAME.tar.gz"
-  jpackage --type app-image --name "$NAME" --input "$OUT" --main-jar "$NAME.jar" --main-class com.trace.pc.TracePc --dest "$OUT" --app-version 3.0.0
+  INPUT="$(mktemp -d)"
+  cp "$OUT/$NAME.jar" "$INPUT/"
+  jpackage --type app-image --name "$NAME" --input "$INPUT" --main-jar "$NAME.jar" --main-class com.trace.pc.TracePc --dest "$OUT" --app-version 3.0.0
+  rm -rf "$INPUT"
   mv "$OUT/$NAME" "$APPDIR"
   if [[ "$PLATFORM" == windows-* || "$PLATFORM" == macos-* ]]; then jar --create --file "$OUT/$NAME.zip" -C "$OUT" "${NAME}-app"; fi
   if [[ "$PLATFORM" == linux-* ]]; then tar -C "$OUT" -czf "$OUT/$NAME.tar.gz" "${NAME}-app"; fi
 else
   echo "jpackage unavailable; jar is a valid PC client but no native package was produced."
 fi
-for f in "$OUT"/$NAME*; do [[ -f "$f" ]] && sha256sum "$f" > "$f.sha256"; done
+for f in "$OUT"/$NAME.zip "$OUT"/$NAME.tar.gz; do [[ -f "$f" ]] && sha256sum "$f" > "$f.sha256"; done
