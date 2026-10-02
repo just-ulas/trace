@@ -38,6 +38,6 @@ else
 fi
 for f in "$OUT"/$NAME.zip "$OUT"/$NAME.tar.gz; do
   if [[ -f "$f" ]]; then
-    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$f" > "$f.sha256"; else shasum -a 256 "$f" > "$f.sha256"; fi
+    if command -v sha256sum >/dev/null 2>&1; then (cd "$(dirname "$f")" && sha256sum "$(basename "$f")") > "$f.sha256"; else (cd "$(dirname "$f")" && shasum -a 256 "$(basename "$f")") > "$f.sha256"; fi
   fi
 done
