@@ -141,11 +141,11 @@ public final class TracePc {
 
     private String file(String path) throws Exception {
         Path p = Paths.get(path); if (!Files.isRegularFile(p)) return "UNAVAILABLE: file not found";
-        byte[] data = Files.readAllBytes(p); if (data.length > 8_000_000) data = Arrays.copyOf(data, 8_000_000);
+        long fileSize = Files.size(p); byte[] data; try (InputStream in = Files.newInputStream(p); ByteArrayOutputStream out = new ByteArrayOutputStream((int) Math.min(fileSize, 8_000_000L))) { byte[] buffer = new byte[8192]; int total = 0, n; while (total < 8_000_000 && (n = in.read(buffer, 0, Math.min(buffer.length, 8_000_000 - total))) > 0) { out.write(buffer, 0, n); total += n; } data = out.toByteArray(); }
         String name=p.getFileName().toString().toLowerCase(Locale.ROOT); List<String> findings=new ArrayList<>();
         if (name.endsWith(".apk") || name.endsWith(".jar") || name.endsWith(".zip")) { try (java.util.zip.ZipInputStream z=new java.util.zip.ZipInputStream(new ByteArrayInputStream(data))) { java.util.zip.ZipEntry e; while((e=z.getNextEntry())!=null) if(e.getName().matches("(?i).*classes\\.dex|AndroidManifest.xml|lib/.*|\\.so$")) findings.add("ARTIFACT: "+e.getName()); } }
         String text = new String(data, StandardCharsets.ISO_8859_1); if (text.matches("(?s).*https?://.*")) findings.add("INDICATOR: embedded URL"); if (text.matches("(?s).*Runtime\\.getRuntime|powershell|cmd\\.exe|eval\\(.*")) findings.add("SUSPICIOUS: executable/script marker");
-        return "MALWARE GUARD\nPATH: "+p.toAbsolutePath()+"\nSIZE: "+Files.size(p)+"\nSHA256: "+digest(p,"SHA-256")+"\nMD5: "+digest(p,"MD5")+"\nTYPE: "+probe(name,data)+"\nFINDINGS:\n- "+String.join("\n- ", findings.isEmpty()?List.of("NONE OBSERVED (static only)"):findings)+"\nSTATUS: UNKNOWN / static analysis only";
+        return "MALWARE GUARD\nPATH: "+p.toAbsolutePath()+"\nSIZE: "+fileSize+"\nSHA256: "+digest(p,"SHA-256")+"\nMD5: "+digest(p,"MD5")+"\nTYPE: "+probe(name,data)+"\nFINDINGS:\n- "+String.join("\n- ", findings.isEmpty()?List.of("NONE OBSERVED (static only)"):findings)+"\nSTATUS: UNKNOWN / static analysis only\nANALYZED BYTES: "+data.length+" / "+fileSize;
     }
 
     private String hash(String value) throws Exception { Path p=Paths.get(value); if(Files.isRegularFile(p)) return file(value); return "HASH LOOKUP\n"+cases.findHash(value)+"\nSource: local evidence only; public provider not configured"; }
