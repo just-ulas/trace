@@ -16,7 +16,10 @@ public final class Trace31 {
     public record Timing(String stage, long millis) {}
     public record VerdictCard(Verdict verdict, String label, String why, String action,
                               int confidence, int evidenceCount, int unknownCount,
-                              List<String> reasons, List<String> findings) {}
+                              List<String> reasons, List<String> findings) {
+        public String label(String lang) { return verdictLabel(lang, verdict); }
+        public String action(String lang) { return verdictAction(lang, verdict); }
+    }
 
     private static final List<String> LANGUAGES = List.of("tr", "en", "de", "es", "fr", "it", "pt", "ru", "ar", "zh");
     private static final Map<String, Map<String, String>> T = translations();
@@ -112,6 +115,23 @@ public final class Trace31 {
     }
 
     private static boolean sameHost(String a, String b) { try { return Objects.equals(URI.create(a).getHost(), URI.create(b).getHost()); } catch (Exception e) { return false; } }
+    private static String verdictLabel(String lang, Verdict v) {
+        String l = language(lang);
+        if ("tr".equals(l)) return switch (v) { case RELIABLE -> "GÜVENİLİR GÖRÜNÜYOR"; case HARDENING -> "GÜVENLİK EKSİKLERİ VAR"; case SUSPICIOUS -> "ŞÜPHELİ"; case THREAT -> "TEHDİT BULGUSU"; case UNVERIFIED -> "GÜVENİLİRLİK DOĞRULANAMADI"; };
+        if ("de".equals(l)) return switch (v) { case RELIABLE -> "ZUVERLÄSSIG ERSCHEINT"; case HARDENING -> "SICHERHEITSLÜCKEN"; case SUSPICIOUS -> "VERDÄCHTIG"; case THREAT -> "BEDROHUNG GEFUNDEN"; case UNVERIFIED -> "NICHT VERIFIZIERT"; };
+        if ("es".equals(l)) return switch (v) { case RELIABLE -> "PARECE FIABLE"; case HARDENING -> "FALTAN CONTROLES DE SEGURIDAD"; case SUSPICIOUS -> "SOSPECHOSO"; case THREAT -> "AMENAZA DETECTADA"; case UNVERIFIED -> "NO VERIFICADO"; };
+        if ("fr".equals(l)) return switch (v) { case RELIABLE -> "SEMBLE FIABLE"; case HARDENING -> "CONTRÔLES DE SÉCURITÉ MANQUANTS"; case SUSPICIOUS -> "SUSPECT"; case THREAT -> "MENACE DÉTECTÉE"; case UNVERIFIED -> "NON VÉRIFIÉ"; };
+        if ("it".equals(l)) return switch (v) { case RELIABLE -> "SEMBRA AFFIDABILE"; case HARDENING -> "CONTROLLI DI SICUREZZA MANCANTI"; case SUSPICIOUS -> "SOSPETTO"; case THREAT -> "MINACCIA RILEVATA"; case UNVERIFIED -> "NON VERIFICATO"; };
+        if ("pt".equals(l)) return switch (v) { case RELIABLE -> "PARECE CONFIÁVEL"; case HARDENING -> "CONTROLES DE SEGURANÇA AUSENTES"; case SUSPICIOUS -> "SUSPEITO"; case THREAT -> "AMEAÇA DETETADA"; case UNVERIFIED -> "NÃO VERIFICADO"; };
+        if ("ru".equals(l)) return switch (v) { case RELIABLE -> "ВЫГЛЯДИТ НАДЁЖНО"; case HARDENING -> "НЕДОСТАЮТ МЕРЫ ЗАЩИТЫ"; case SUSPICIOUS -> "ПОДОЗРИТЕЛЬНО"; case THREAT -> "ОБНАРУЖЕНА УГРОЗА"; case UNVERIFIED -> "НЕ ПРОВЕРЕНО"; };
+        if ("ar".equals(l)) return switch (v) { case RELIABLE -> "يبدو موثوقًا"; case HARDENING -> "ضوابط الأمان ناقصة"; case SUSPICIOUS -> "مريب"; case THREAT -> "تم اكتشاف تهديد"; case UNVERIFIED -> "غير متحقق منه"; };
+        if ("zh".equals(l)) return switch (v) { case RELIABLE -> "看起来可靠"; case HARDENING -> "缺少安全控制"; case SUSPICIOUS -> "可疑"; case THREAT -> "发现威胁"; case UNVERIFIED -> "未验证"; };
+        return switch (v) { case RELIABLE -> "RELIABLE"; case HARDENING -> "HARDENING"; case SUSPICIOUS -> "SUSPICIOUS"; case THREAT -> "THREAT"; case UNVERIFIED -> "UNVERIFIED"; };
+    }
+    private static String verdictAction(String lang, Verdict v) {
+        if ("tr".equals(language(lang))) return switch (v) { case RELIABLE -> "Açık bir tehdit göstergesi yok; yine de dikkatli olun."; case HARDENING -> "Tehdit kanıtı yok, ancak eksik güvenlik kontrollerini inceleyin."; case SUSPICIOUS -> "Parola veya ödeme bilgisi girmeden önce alan adını doğrulayın."; case THREAT -> "Etkileşime geçmeden bağlantıyı kapatın."; case UNVERIFIED -> "Tarama güvenlik kararı veremedi; güvenli varsaymayın."; };
+        return switch (v) { case RELIABLE -> "No clear threat indicator was found; remain cautious."; case HARDENING -> "Review the missing security controls before relying on this target."; case SUSPICIOUS -> "Verify the domain before entering passwords or payment information."; case THREAT -> "Close the connection before interacting with this target."; case UNVERIFIED -> "The scan could not establish safety; do not infer safety."; };
+    }
     private static String py(String x) { return "\"" + x.replace("\\", "\\\\").replace("\"", "\\\"") + "\""; }
     private static String js(String x) { return "'" + x.replace("\\", "\\\\").replace("'", "\\'") + "'"; }
     private static String sh(String x) { return "'" + x.replace("'", "'\\''") + "'"; }

@@ -61,7 +61,9 @@ public final class TraceScanner {
         result.put("technology", technology(fetch.headers, fetch.body));
         result.put("securityHeaders", securityHeaders(fetch.headers));
         result.put("reputation", reputation(new URL(url).getHost()));
-        result.put("content", ContentAnalyzer.analyze(url, fetch.body));
+        JSONObject content = ContentAnalyzer.analyze(url, fetch.body);
+        result.put("content", content);
+        result.put("pageType", TraceCore.classifyPage(content.optString("title", ""), fetch.body, URI.create(url)));
         result.put("ip", ipIntelligence(new URL(url).getHost()));
         result.put("domain", domainIntelligence(new URL(url).getHost()));
         result.put("risk", RiskEngine.evaluate(result));

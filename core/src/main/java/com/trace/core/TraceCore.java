@@ -50,16 +50,29 @@ public final class TraceCore {
     }
 
     public static String classifyPage(String title, String body, URI uri) {
-        String text = ((title == null ? "" : title) + " " + (body == null ? "" : body)).toLowerCase(Locale.ROOT);
-        if (text.matches(".*(sign[ -]?in|log[ -]?in|password|username).*")) return "LOGIN";
-        if (text.matches(".*(checkout|payment|credit card|billing).*")) return "PAYMENT";
-        if (text.matches(".*(search|query|find results).*")) return "SEARCH";
-        if (text.matches(".*(download|installer|apk|\\.exe|\\.dmg).*")) return "DOWNLOAD";
-        if (text.matches(".*(news|breaking|press release).*")) return "NEWS";
-        if (text.matches(".*(blog|article|author).*")) return "BLOG";
-        if (text.matches(".*(shop|store|cart|product).*")) return "STORE";
-        if (text.matches(".*(facebook|instagram|social|follow us).*")) return "SOCIAL";
+        String html = body == null ? "" : body;
+        String visible = html.replaceAll("(?is)<(script|style|noscript|svg)[^>]*>.*?</\\1>", " ")
+                .replaceAll("(?is)<[^>]+>", " ").replaceAll("&(?:nbsp|amp|quot|lt|gt);", " ")
+                .replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
+        String heading = html.replaceAll("(?is)<h[1-3][^>]*>(.*?)</h[1-3]>", " $1 ").toLowerCase(Locale.ROOT);
+        String titleText = (title == null ? "" : title).toLowerCase(Locale.ROOT);
+        String path = uri == null || uri.getPath() == null ? "" : uri.getPath().toLowerCase(Locale.ROOT);
+        boolean passwordInput = html.matches("(?is).*<input[^>]+type\\s*=\\s*[\\\"']?password.*");
+        boolean form = html.matches("(?is).*<form\\b.*");
+        if (passwordInput && (containsAny(visible + " " + heading + " " + titleText, "sign in", "signin", "log in", "login", "account", "password", "username") || path.matches(".*(login|signin|account|auth|verify).*"))) return "LOGIN";
+        if (form && containsAny(visible + " " + heading + " " + titleText, "checkout", "payment", "credit card", "billing", "order", "cart")) return "PAYMENT";
+        if (html.matches("(?is).*<input[^>]+type\\s*=\\s*[\\\"']?(search|text).*|.*role\\s*=\\s*[\\\"']search.*") && containsAny(visible + " " + heading + " " + titleText, "search", "results", "find")) return "SEARCH";
+        if (path.matches(".*\\.(apk|exe|msi|dmg|zip|jar|pdf|docx?)(\\?.*)?$") || html.matches("(?is).*\\b(download|installer)\\b.*")) return "DOWNLOAD";
+        if (containsAny(heading + " " + titleText, "news", "breaking", "press release") || html.matches("(?is).*<article\\b.*")) return "NEWS";
+        if (html.matches("(?is).*<article\\b.*") || containsAny(heading + " " + titleText, "blog", "article", "author", "read more")) return "BLOG";
+        if (containsAny(visible + " " + heading + " " + titleText, "shop", "store", "cart", "product", "add to cart")) return "STORE";
+        if (containsAny(visible + " " + heading + " " + titleText, "facebook", "instagram", "social", "follow us")) return "SOCIAL";
         return "UNKNOWN";
+    }
+
+    private static boolean containsAny(String text, String... terms) {
+        for (String term : terms) if (text.contains(term)) return true;
+        return false;
     }
 
     public static String riskLevel(int score, boolean knownThreat, boolean unknown) {

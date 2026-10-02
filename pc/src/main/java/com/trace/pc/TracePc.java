@@ -100,7 +100,7 @@ public final class TracePc {
         long totalMs = (System.nanoTime() - scanStarted) / 1_000_000;
         cases.timing(id, "scan " + totalMs + "ms; URL VALIDATION/DNS/TLS/HTTP/REDIRECTS/CONTENT/ANALYSIS/RISK captured locally");
         Trace31.VerdictCard card = Trace31.verdict(risk, risk.equals("THREAT") ? 92 : Math.max(35, 88 - findings.size() * 8), findings.size(), response == null ? 1 : 0, 0, findings, findings);
-        return formatVerdict(card, id, target, current, totalMs) + (mode == Trace31.Mode.DEVELOPER ? "\n\n" + formatEvidence(id, target, start, current, page, risk, findings, hops, response, body, deep) : "");
+        return formatVerdict(card, id, target, current, page, totalMs) + (mode == Trace31.Mode.DEVELOPER ? "\n\n" + formatEvidence(id, target, start, current, page, risk, findings, hops, response, body, deep) : "");
     }
 
     private String link(String target) throws Exception {
@@ -132,10 +132,10 @@ public final class TracePc {
         return "SETTINGS SAVED\nlanguage="+language+"\nmode="+mode;
     }
 
-    private String formatVerdict(Trace31.VerdictCard card,String id,String target,URI finalUrl,long totalMs){
-        StringBuilder s=new StringBuilder(); s.append(Trace31.text(language,"general")).append("\n\n").append(card.label()).append("\nCONFIDENCE: ").append(card.confidence()).append("%\nCASE: ").append(id).append("\n\n").append(Trace31.text(language,"why")).append("\n");
+    private String formatVerdict(Trace31.VerdictCard card,String id,String target,URI finalUrl,String page,long totalMs){
+        StringBuilder s=new StringBuilder(); s.append(Trace31.text(language,"general")).append("\n\n").append(card.label(language)).append("\nCONFIDENCE: ").append(card.confidence()).append("%\nCASE: ").append(id).append("\n\n").append(Trace31.text(language,"why")).append("\n");
         for(String r:card.reasons())s.append("• ").append(r).append('\n');
-        s.append("\n").append(Trace31.text(language,"action")).append("\n").append(card.action()).append("\n\nTARGET: ").append(target).append("\nFINAL DESTINATION: ").append(finalUrl).append("\nSCAN TIME: ").append(totalMs).append("ms\n\n").append(Trace31.text(language,"details")).append("\n");
+        s.append("\n").append(Trace31.text(language,"action")).append("\n").append(card.action(language)).append("\n\nTARGET: ").append(target).append("\nFINAL DESTINATION: ").append(finalUrl).append("\nSITE TYPE: ").append(page).append("\nSCAN TIME: ").append(totalMs).append("ms\n\n").append(Trace31.text(language,"details")).append("\n");
         return s.toString();
     }
 

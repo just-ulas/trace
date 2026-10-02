@@ -476,7 +476,8 @@ public final class MainActivity extends android.app.Activity {
             language = Trace31.language(languageField.getText().toString().trim());
             try { mode = Trace31.Mode.valueOf(modeField.getText().toString().trim().toUpperCase(Locale.ROOT)); } catch (Exception ignored) { mode = Trace31.Mode.BEGINNER; }
             prefs.edit().putString("language", language).putString("mode", mode.name()).putString("timeout", timeout.getText().toString().trim()).putString("bodyLimit", bodyLimit.getText().toString().trim()).putString("watchInterval", watchInterval.getText().toString().trim()).apply();
-            save.setText("SAVED LOCALLY");
+            buildShell();
+            showSettings();
         });
         content.addView(page);
     }
@@ -512,12 +513,12 @@ public final class MainActivity extends android.app.Activity {
         if (findingsJson != null) for (int i = 0; i < findingsJson.length(); i++) findings.add(findingsJson.optString(i));
         Trace31.VerdictCard card = Trace31.verdict(severity, confidence, findings.size(), "UNKNOWN".equals(severity) ? 1 : 0, 0, findings, findings);
         StringBuilder out = new StringBuilder();
-        out.append(localized(R.string.general_result, "general")).append("\n\n").append(card.label()).append("\n");
+        out.append(localized(R.string.general_result, "general")).append("\n\n").append(card.label(language)).append("\n");
         out.append("CONFIDENCE: ").append(card.confidence()).append("%\nCASE: ").append(caseId).append("\n\n");
         out.append(localized(R.string.why, "why")).append("\n");
         if (findings.isEmpty()) out.append("• Available evidence contains no high-signal threat finding.\n");
         else for (String finding : findings) out.append("• ").append(finding).append('\n');
-        out.append("\n").append(localized(R.string.recommended_action, "action")).append("\n").append(card.action()).append("\n\n");
+        out.append("\n").append(localized(R.string.recommended_action, "action")).append("\n").append(card.action(language)).append("\n\n");
         out.append("This assessment is based on available evidence and is not a security guarantee.\n\n");
         out.append("TARGET: ").append(result.optString("target", "?"));
         if (mode != Trace31.Mode.BEGINNER) out.append("\n\n").append(formatScan(result, caseId));
@@ -546,6 +547,7 @@ public final class MainActivity extends android.app.Activity {
         JSONObject tech = result.optJSONObject("technology");
         JSONObject tls = result.optJSONObject("tls");
         JSONObject reputation = result.optJSONObject("reputation");
+        JSONObject content = result.optJSONObject("content");
         String status = http == null ? "?" : String.valueOf(http.optInt("statusCode", 0));
         String redirectCount = String.valueOf(result.optJSONArray("redirects") == null ? 0 : result.optJSONArray("redirects").length());
         String tlsStatus = tls == null ? "?" : tls.optString("status", "?").toUpperCase(Locale.US);
@@ -559,6 +561,8 @@ public final class MainActivity extends android.app.Activity {
                 + "[+] HTTP          " + status + "\n"
                 + "[+] REDIRECTS     " + redirectCount + "\n"
                 + "[+] TECHNOLOGY    " + technology + "\n"
+                + "[+] SITE TYPE     " + result.optString("pageType", "UNKNOWN") + "\n"
+                + "[+] PAGE SCOPE    " + (content == null ? "UNKNOWN" : content.optInt("linkCount", 0) + " links / " + content.optInt("formCount", content.optJSONArray("forms") == null ? 0 : content.optJSONArray("forms").length()) + " forms / " + content.optInt("headingCount", 0) + " headings") + "\n"
                 + "[+] REPUTATION    " + providerCount + " provider modules\n"
                 + "[+] RISK          " + (risk == null ? "UNKNOWN" : risk.optString("severity", "UNKNOWN")) + "\n"
                 + "[+] " + localized(R.string.source_diagnostics, "sources") + "  " + (reputation == null ? "UNKNOWN" : reputation.optString("status", "LOCAL")) + "\n"
@@ -617,7 +621,6 @@ public final class MainActivity extends android.app.Activity {
     }
 
     private String localized(int resourceId, String key) {
-        if (language.equals(Trace31.language(Locale.getDefault().getLanguage()))) return getString(resourceId);
         return Trace31.text(language, key);
     }
 

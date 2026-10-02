@@ -24,6 +24,11 @@ public final class ContentAnalyzer {
             String host = origin.getHost() == null ? "" : origin.getHost().toLowerCase(Locale.US);
             String title = match(html, "(?is)<title[^>]*>(.*?)</title>");
             out.put("title", strip(title));
+            String visible = html.replaceAll("(?is)<(script|style|noscript|svg)[^>]*>.*?</\\1>", " ").replaceAll("(?is)<[^>]+>", " ").replaceAll("\\s+", " ").trim();
+            out.put("visibleTextChars", Math.min(visible.length(), 200000));
+            out.put("headingCount", countMatches(html, "(?is)<h[1-6]\\b"));
+            out.put("linkCount", countMatches(html, "(?is)<a\\b"));
+            out.put("imageCount", countMatches(html, "(?is)<img\\b"));
             out.put("hasPasswordField", lower.matches("(?s).*<input[^>]+type\\s*=\\s*[\\\"']?password.*"));
             out.put("hasIframe", lower.contains("<iframe"));
             out.put("hasSuspiciousPath", origin.getPath() != null && origin.getPath().toLowerCase(Locale.US).matches(".*(login|verify|secure|account|update|wallet|signin|password|confirm).*"));
@@ -56,4 +61,5 @@ public final class ContentAnalyzer {
     private static String attr(String attrs, String name) { Matcher m = Pattern.compile("(?i)\\b" + name + "\\s*=\\s*[\\\"']([^\\\"']*)").matcher(attrs); return m.find() ? m.group(1) : ""; }
     private static String strip(String value) { return value == null ? "" : value.replaceAll("<[^>]+>", "").replaceAll("\\s+", " ").trim(); }
     private static int count(String text, String token) { int n=0, p=0; while ((p=text.indexOf(token,p)) >= 0) { n++; p += token.length(); } return n; }
+    private static int countMatches(String text, String regex) { Matcher m = Pattern.compile(regex).matcher(text); int n=0; while (m.find()) n++; return n; }
 }

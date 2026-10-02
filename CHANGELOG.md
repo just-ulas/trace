@@ -28,6 +28,14 @@
 - Fixed Android risk severity/confidence mapping, PC timing persistence, metadata validation, and TRACE 3.1 User-Agent labeling.
 - Added regression coverage for raw query preservation, nested URL detection, unavailable-source handling, hardening presentation, and redaction.
 
+### Language and site-understanding fixes
+
+- Language changes now rebuild the Android shell immediately instead of only changing a hidden preference.
+- Android and PC verdict labels/actions follow the selected language; mixed Turkish/English verdict output is removed.
+- Page classification now prioritizes visible text, headings, real forms, URL path and page structure while ignoring script/style noise.
+- Scan summaries now show detected site type and page scope (links, forms, headings).
+- Added regression tests for login/store classification, encoded destinations, localized verdicts and conservative unknown handling.
+
 ### Validation
 
 - PC core regression tests: PASS, including ten-language coverage, unknown/suspicious verdicts, link explain, and redaction.
