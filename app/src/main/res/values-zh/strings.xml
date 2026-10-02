@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TRACE</string>
+    <string name="general_result">总体结果</string>
+    <string name="why">为什么？</string>
+    <string name="recommended_action">我该怎么办？</string>
+    <string name="technical_details">查看技术详情</string>
+    <string name="settings">设置</string>
+    <string name="analyze">分析</string>
+    <string name="target">目标</string>
+    <string name="unknown_verdict">无法验证可靠性</string>
+    <string name="copy">复制</string>
+    <string name="code_integration">代码 / 集成</string>
+    <string name="source_diagnostics">来源诊断</string>
+    <string name="scan_timing">扫描时间</string>
+</resources>

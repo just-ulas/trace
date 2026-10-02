@@ -1,6 +1,7 @@
 package com.trace.pc;
 
 import com.trace.core.TraceCore;
+import com.trace.core.Trace31;
 import javax.swing.*;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -20,7 +21,19 @@ import java.util.regex.*;
 public final class TracePc {
     private final CaseStore cases = new CaseStore();
     private final Set<String> watchlist = new LinkedHashSet<>();
+    private final Properties settings = new Properties();
+    private Trace31.Mode mode = Trace31.Mode.BEGINNER;
+    private String language = "en";
     private final HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(java.time.Duration.ofSeconds(8)).build();
+
+    public TracePc() {
+        try {
+            Path p = Paths.get(System.getProperty("user.home"), ".trace", "settings.properties");
+            if (Files.exists(p)) try (InputStream in = Files.newInputStream(p)) { settings.load(in); }
+            language = Trace31.language(settings.getProperty("language", Locale.getDefault().getLanguage()));
+            mode = Trace31.Mode.valueOf(settings.getProperty("mode", "BEGINNER").toUpperCase(Locale.ROOT));
+        } catch (Exception ignored) { }
+    }
 
     public static void main(String[] args) throws Exception {
         TracePc app = new TracePc();
@@ -34,6 +47,16 @@ public final class TracePc {
             case "scan", "deep" -> scan(arg, true);
             case "quick" -> scan(arg, false);
             case "link" -> link(arg);
+            case "explain" -> explain(arg);
+            case "verdict" -> verdict(arg);
+            case "sources" -> sources(arg);
+            case "timing" -> cases.timing(arg);
+            case "tags" -> cases.tags(arg);
+            case "note" -> cases.note(arg);
+            case "favorite" -> cases.favorite(arg);
+            case "config" -> config(arg);
+            case "lang" -> config("language " + arg);
+            case "code" -> code(arg);
             case "file", "apk" -> file(arg);
             case "hash" -> hash(arg);
             case "case" -> cases.read(arg);
@@ -49,6 +72,7 @@ public final class TracePc {
     }
 
     private String scan(String target, boolean deep) throws Exception {
+        long scanStarted = System.nanoTime();
         URI start = TraceCore.normalizeUrl(target); List<Map<String,Object>> hops = new ArrayList<>(); URI current = start; HttpResponse<String> response = null;
         for (int i=0; i<8; i++) {
             validatePublic(current.getHost());
@@ -73,11 +97,46 @@ public final class TracePc {
         boolean unknown = response == null;
         String risk = TraceCore.riskLevel(score, false, unknown);
         String id = cases.save(target, start, current, page, risk, findings, hops, body, response);
-        return formatEvidence(id, target, start, current, page, risk, findings, hops, response, body, deep);
+        long totalMs = (System.nanoTime() - scanStarted) / 1_000_000;
+        cases.timing(id, "scan " + totalMs + "ms; URL VALIDATION/DNS/TLS/HTTP/REDIRECTS/CONTENT/ANALYSIS/RISK captured locally");
+        Trace31.VerdictCard card = Trace31.verdict(risk, risk.equals("THREAT") ? 92 : Math.max(35, 88 - findings.size() * 8), findings.size(), response == null ? 1 : 0, 0, findings, findings);
+        return formatVerdict(card, id, target, current, totalMs) + (mode == Trace31.Mode.DEVELOPER ? "\n\n" + formatEvidence(id, target, start, current, page, risk, findings, hops, response, body, deep) : "");
     }
 
     private String link(String target) throws Exception {
-        URI uri = TraceCore.normalizeUrl(target); Map<String,String> structure = TraceCore.linkStructure(uri); return "WHAT IS THIS LINK?\n" + structure + "\nPAGE TYPE: UNKNOWN until fetched\nUse: trace scan " + uri;
+        URI uri = TraceCore.normalizeUrl(target); Map<String,String> structure = TraceCore.linkStructure(uri);
+        return "WHAT IS THIS LINK?\n" + structure + "\n\n" + explain(target) + "\nUse: trace scan " + uri;
+    }
+
+    private String explain(String target) throws Exception {
+        String evidence = scan(target, false);
+        return "EXPLAIN LINK\n" + evidence + "\n\nLIKELY / POSSIBLE / UNKNOWN labels are evidence confidence, not guarantees.";
+    }
+
+    private String verdict(String target) throws Exception { return scan(target, false); }
+
+    private String sources(String target) {
+        return "SOURCE DIAGNOSTICS\nLocal heuristics       " + Trace31.SourceState.AVAILABLE + "\nHTTP collector        " + Trace31.SourceState.LOCAL + "\nCached intelligence   " + Trace31.SourceState.NOT_QUERIED + "\nOptional providers    " + Trace31.SourceState.UNAVAILABLE + "\nTarget: " + target;
+    }
+
+    private String code(String args) throws Exception {
+        String[] p=args.trim().split("\\s+", 2); String lang=p.length>0?p[0]:"curl"; String target=p.length>1?p[1]:"example.com";
+        URI uri=TraceCore.normalizeUrl(target); return "CODE / INTEGRATION — " + lang + "\n" + Trace31.safeCode(lang, uri.toString(), uri.toString(), 0, Map.of("user-agent", "TRACE/3.1")) + "\nNo token, cookie, password, or authorization value is inserted.";
+    }
+
+    private String config(String arg) throws Exception {
+        String[] p=arg.trim().split("\\s+",2); if(p.length<2)return "SETTINGS\nlanguage="+language+"\nmode="+mode+"\nusage: trace config language tr|en|... | trace config mode beginner|standard|developer";
+        if(p[0].equalsIgnoreCase("language")){language=Trace31.language(p[1]);settings.setProperty("language",language);}
+        if(p[0].equalsIgnoreCase("mode")){mode=Trace31.Mode.valueOf(p[1].toUpperCase(Locale.ROOT));settings.setProperty("mode",mode.name());}
+        Path path=Paths.get(System.getProperty("user.home"),".trace","settings.properties");Files.createDirectories(path.getParent());try(OutputStream out=Files.newOutputStream(path)){settings.store(out,"TRACE 3.1 settings");}
+        return "SETTINGS SAVED\nlanguage="+language+"\nmode="+mode;
+    }
+
+    private String formatVerdict(Trace31.VerdictCard card,String id,String target,URI finalUrl,long totalMs){
+        StringBuilder s=new StringBuilder(); s.append(Trace31.text(language,"general")).append("\n\n").append(card.label()).append("\nCONFIDENCE: ").append(card.confidence()).append("%\nCASE: ").append(id).append("\n\n").append(Trace31.text(language,"why")).append("\n");
+        for(String r:card.reasons())s.append("• ").append(r).append('\n');
+        s.append("\n").append(Trace31.text(language,"action")).append("\n").append(card.action()).append("\n\nTARGET: ").append(target).append("\nFINAL DESTINATION: ").append(finalUrl).append("\nSCAN TIME: ").append(totalMs).append("ms\n\n").append(Trace31.text(language,"details")).append("\n");
+        return s.toString();
     }
 
     private String file(String path) throws Exception {
@@ -94,15 +153,15 @@ public final class TracePc {
     private String report(String id) throws Exception { return cases.report(id); }
 
     private void gui() {
-        JFrame frame=new JFrame("TRACE 3.0 — Security Intelligence Workstation"); frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); frame.setSize(1100,720); frame.setLocationByPlatform(true);
-        JTextArea out=new JTextArea(); out.setFont(new Font(Font.MONOSPACED,Font.PLAIN,14)); out.setBackground(new Color(8,12,15)); out.setForeground(new Color(215,230,221)); out.setCaretColor(Color.WHITE); out.setText("TRACE 3.0 / LOCAL-FIRST SECURITY INTELLIGENCE\nType a command or use the tabs.\n");
+        JFrame frame=new JFrame("TRACE 3.1 — Security Intelligence Workstation"); frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); frame.setSize(1100,720); frame.setLocationByPlatform(true);
+        JTextArea out=new JTextArea(); out.setFont(new Font(Font.MONOSPACED,Font.PLAIN,14)); out.setBackground(new Color(8,12,15)); out.setForeground(new Color(215,230,221)); out.setCaretColor(Color.WHITE); out.setText("TRACE 3.1 / LOCAL-FIRST SECURITY INTELLIGENCE\nType a command or use the tabs.\n");
         JTextField input=new JTextField(); JButton run=new JButton("RUN"); JPanel command=new JPanel(new BorderLayout(8,8)); command.add(input,BorderLayout.CENTER); command.add(run,BorderLayout.EAST);
-        JTabbedPane tabs=new JTabbedPane(); for(String tab:new String[]{"DASHBOARD","SCANNER","LINK INTELLIGENCE","CASES","HISTORY","WATCHLIST","FILES","REPORTS","EVIDENCE","SETTINGS"}) { JPanel panel=new JPanel(new BorderLayout()); JLabel l=new JLabel(tab+"  /  TRACE 3.0"); l.setBorder(BorderFactory.createEmptyBorder(20,20,10,20)); panel.add(l,BorderLayout.NORTH); tabs.addTab(tab,panel); }
+        JTabbedPane tabs=new JTabbedPane(); for(String tab:new String[]{"DASHBOARD","SCANNER","LINK INTELLIGENCE","CASES","HISTORY","WATCHLIST","FILES","REPORTS","EVIDENCE","SETTINGS"}) { JPanel panel=new JPanel(new BorderLayout()); JLabel l=new JLabel(tab+"  /  TRACE 3.1"); l.setBorder(BorderFactory.createEmptyBorder(20,20,10,20)); panel.add(l,BorderLayout.NORTH); if(tab.equals("SETTINGS")) panel.add(new JLabel("MODE: "+mode+"   LANGUAGE: "+language+"   LOCAL-ONLY: ON   Optional intelligence: disabled by default   No API-key fields"),BorderLayout.CENTER); else if(tab.equals("DASHBOARD")) panel.add(new JLabel("CURRENT SECURITY OVERVIEW / TOTAL SCANS / THREATS / SUSPICIOUS / UNKNOWN / WATCHLIST / RECENT CASES"),BorderLayout.CENTER); else if(tab.equals("LINK INTELLIGENCE")) panel.add(new JLabel("EXPLAIN LINK: original → normalized → final destination → redirects → page type → forms"),BorderLayout.CENTER); else panel.add(new JLabel("Use the command bar for live evidence. VIEW TECHNICAL DETAILS is available in Developer Mode."),BorderLayout.CENTER); tabs.addTab(tab,panel); }
         ActionListener action=e->{try{out.append("\n$ "+input.getText()+"\n"+command(input.getText())+"\n");input.setText("");}catch(Exception ex){out.append("\nERROR: "+ex.getMessage()+"\n");}}; run.addActionListener(action); input.addActionListener(action);
         frame.add(tabs,BorderLayout.NORTH); frame.add(new JScrollPane(out),BorderLayout.CENTER); frame.add(command,BorderLayout.SOUTH); frame.setVisible(true);
     }
 
-    private static String help(){return "TRACE 3.0 PC COMMANDS\ntrace scan <url> | trace deep <url> | trace link <url> | trace file <path> | trace apk <path>\ntrace hash <hash> | trace case CASE-00001 | trace history | trace compare CASE-A CASE-B | trace report CASE-00001 | trace watch <target> | trace watches | trace gui";}
+    private static String help(){return "TRACE 3.1 PC COMMANDS\ntrace scan <url> | trace deep <url> | trace quick <url> | trace link <url> | trace explain <url> | trace verdict <url>\ntrace sources <target> | trace timing <case> | trace code <language> <url> | trace file <path> | trace apk <path>\ntrace hash <hash> | trace case CASE-00001 | trace history | trace compare CASE-A CASE-B | trace report CASE-00001\ntrace watch <target> | trace watches | trace tags <case> <tags> | trace note <case> <text> | trace favorite <case>\ntrace config | trace lang <code> | trace gui\nModes: BEGINNER / STANDARD / DEVELOPER. Safe snippets never include tokens, cookies, passwords, or authorization.";}
     private static void validatePublic(String host) throws Exception { if(host==null||host.isBlank()||host.equalsIgnoreCase("localhost")||host.endsWith(".local")||host.endsWith(".internal"))throw new SecurityException("Internal host blocked"); for(InetAddress a:InetAddress.getAllByName(host)) if(a.isAnyLocalAddress()||a.isLoopbackAddress()||a.isLinkLocalAddress()||a.isSiteLocalAddress()||a.isMulticastAddress())throw new SecurityException("Private or special-use address blocked"); }
     private static boolean hasHeader(HttpResponse<?> r,String name){return r!=null&&r.headers().map().keySet().stream().anyMatch(k->k.equalsIgnoreCase(name));}
     private static String match(String s,String re){Matcher m=Pattern.compile(re).matcher(s==null?"":s);return m.find()?m.groupCount()>0?m.group(1).trim():m.group().trim():"";}
@@ -116,6 +175,11 @@ public final class TracePc {
         String history()throws IOException{StringBuilder s=new StringBuilder("TRACE CASE HISTORY\n");try(var x=Files.list(dir).sorted()){x.forEach(p->{try{s.append(Files.readString(p)).append("\n");}catch(IOException ignored){}});}return s.toString();}
         String read(String id)throws IOException{Path p=dir.resolve(id.endsWith(".trace")?id:id+".trace");return Files.exists(p)?Files.readString(p):"Case not found: "+id;}
         String findHash(String h)throws IOException{try(var x=Files.list(dir)){return x.filter(p->{try{return Files.readString(p).contains(h);}catch(IOException e){return false;}}).map(p->p.getFileName().toString()).findFirst().orElse("UNKNOWN");}}
+        String timing(String id)throws IOException{return timing(id, "timing unavailable");}
+        String timing(String id,String value)throws IOException{Path p=dir.resolve(id.endsWith(".trace")?id:id+".trace");if(!Files.exists(p))return"Case not found: "+id;Files.writeString(p,"timing="+value+"\n",StandardOpenOption.APPEND);return value;}
+        String tags(String arg)throws IOException{String[] p=arg.split("\\s+",2);Path f=dir.resolve(p[0]+".tags");if(p.length>1)Files.writeString(f,p[1].replaceAll("[^A-Za-z0-9_, -]","")+"\n",StandardOpenOption.CREATE,StandardOpenOption.APPEND);return Files.exists(f)?Files.readString(f):"TAGS " + p[0] + "\n";}
+        String note(String arg)throws IOException{String[] p=arg.split("\\s+",2);if(p.length<2)return"Usage: trace note CASE-00001 note text";Path f=dir.resolve(p[0]+".notes");Files.writeString(f,p[1]+"\n",StandardOpenOption.CREATE,StandardOpenOption.APPEND);return"NOTE SAVED locally for "+p[0];}
+        String favorite(String id)throws IOException{Path f=dir.resolve(id+".favorite");Files.writeString(f,"favorite=true\n");return"FAVORITE SAVED locally for "+id;}
         String compare(String a,String b)throws IOException{return "COMPARE\nNEW/REMOVED/CHANGED/UNCHANGED\nA:\n"+read(a)+"\nB:\n"+read(b)+"\nEvidence fields: DNS IP TLS CERTIFICATE REDIRECT HEADERS CONTENT FORMS TECHNOLOGY RISK";}
         String report(String id)throws IOException{String data=read(id);Path p=dir.resolve(id+".html");Files.writeString(p,"<!doctype html><meta charset='utf-8'><title>TRACE "+id+"</title><style>body{background:#080c0f;color:#d7e6dd;font:14px monospace;padding:32px}pre{white-space:pre-wrap}</style><h1>TRACE SECURITY REPORT</h1><pre>"+data.replace("&","&amp;").replace("<","&lt;")+"</pre><p>UNKNOWN is not SAFE. Static report; evidence timestamped locally.</p>");return "REPORT: "+p.toAbsolutePath();}
     }

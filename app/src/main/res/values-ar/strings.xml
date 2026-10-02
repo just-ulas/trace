@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TRACE</string>
+    <string name="general_result">النتيجة العامة</string>
+    <string name="why">لماذا؟</string>
+    <string name="recommended_action">ماذا أفعل؟</string>
+    <string name="technical_details">عرض التفاصيل التقنية</string>
+    <string name="settings">الإعدادات</string>
+    <string name="analyze">تحليل</string>
+    <string name="target">الهدف</string>
+    <string name="unknown_verdict">تعذر التحقق من الموثوقية</string>
+    <string name="copy">نسخ</string>
+    <string name="code_integration">الكود / التكامل</string>
+    <string name="source_diagnostics">حالة المصادر</string>
+    <string name="scan_timing">وقت الفحص</string>
+</resources>

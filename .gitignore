@@ -14,3 +14,4 @@ app/debug/
 *.jks
 *.keystore
 pc/dist/
+trace31-release/

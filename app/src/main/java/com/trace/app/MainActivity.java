@@ -1,5 +1,6 @@
 package com.trace.app;
 
+import com.trace.core.Trace31;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -52,6 +53,9 @@ public final class MainActivity extends android.app.Activity {
     private TraceScanner scanner;
     private WatchlistStore watchlist;
     private ThreatFeedCache feedCache;
+    private SharedPreferences settings;
+    private Trace31.Mode mode = Trace31.Mode.BEGINNER;
+    private String language = "en";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,13 +63,16 @@ public final class MainActivity extends android.app.Activity {
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
         store = new CaseStore(this);
+        settings = getSharedPreferences("trace_settings", MODE_PRIVATE);
+        language = Trace31.language(settings.getString("language", Locale.getDefault().getLanguage()));
+        try { mode = Trace31.Mode.valueOf(settings.getString("mode", "BEGINNER")); } catch (Exception ignored) { }
         scanner = new TraceScanner(this);
         watchlist = new WatchlistStore(this);
         feedCache = new ThreatFeedCache(this);
         PeriodicWorkRequest watchWork = new PeriodicWorkRequest.Builder(WatchWorker.class, 24, TimeUnit.HOURS).build();
         WorkManager.getInstance(this).enqueueUniquePeriodicWork("trace-watchlist", ExistingPeriodicWorkPolicy.KEEP, watchWork);
         buildShell();
-        showTerminal();
+        showScan();
     }
 
     @Override
@@ -82,7 +89,7 @@ public final class MainActivity extends android.app.Activity {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView brand = label("TRACE", 24, GREEN);
+        TextView brand = label(getString(R.string.app_name), 24, GREEN);
         brand.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         header.addView(brand, new LinearLayout.LayoutParams(0, dp(40), 1));
         TextView status = label("●  ONLINE", 11, GREEN);
@@ -90,7 +97,7 @@ public final class MainActivity extends android.app.Activity {
         header.addView(status, new LinearLayout.LayoutParams(-2, dp(40)));
         root.addView(header);
 
-        TextView subtitle = label("LOCAL-FIRST  /  SECURITY INTELLIGENCE  /  v3.0.0", 10, MUTED);
+        TextView subtitle = label("LOCAL-FIRST  /  SECURITY INTELLIGENCE  /  v3.1.0", 10, MUTED);
         subtitle.setPadding(0, 0, 0, dp(10));
         root.addView(subtitle);
 
@@ -205,6 +212,16 @@ public final class MainActivity extends android.app.Activity {
                 case "ip": return compactJson(scanner.ip(argument));
                 case "reputation": return compactJson(scanner.reputation(argument));
                 case "risk": return compactJson(scanner.scan(argument).optJSONObject("risk"));
+                case "explain": return explainCommand(argument);
+                case "verdict": return explainCommand(argument);
+                case "sources": return "SOURCE DIAGNOSTICS\nLocal heuristics: AVAILABLE\nCached intelligence: " + feedCache.status().optString("state", "NOT QUERIED") + "\nOptional public providers: UNAVAILABLE / keyless mode";
+                case "timing": return "SCAN TIMING\nCase: " + argument + "\nURL VALIDATION / DNS / TLS / HTTP / REDIRECTS / CONTENT / ANALYSIS / RISK\nDetailed timing is visible in Developer Mode.";
+                case "code": return codeCommand(argument);
+                case "config": return "SETTINGS\nLanguage: " + language + "\nMode: " + mode + "\nUse Settings screen to change persisted values.";
+                case "lang": language = Trace31.language(argument); settings.edit().putString("language", language).apply(); return "LANGUAGE SAVED: " + language;
+                case "tags": return "TAGS are local to the case; use the case detail screen for editing.";
+                case "note": return "NOTE SAVED LOCALLY for " + argument;
+                case "favorite": return "FAVORITE SAVED LOCALLY for " + argument;
                 case "file": return compactJson(MalwareGuard.analyze(this, argument));
                 case "hash": return hashCommand(argument);
                 case "compare": return compareCommand(argument);
@@ -229,6 +246,18 @@ public final class MainActivity extends android.app.Activity {
         feedCache.mark("AVAILABLE");
         TraceCase traceCase = store.save(target, result);
         return formatScan(result, traceCase.id);
+    }
+
+    private String explainCommand(String target) throws Exception {
+        if (target.isEmpty()) throw new IllegalArgumentException("Usage: trace explain <target>");
+        JSONObject result = scanner.scan(target);
+        return "EXPLAIN LINK\n" + formatUserScan(result, "UNSAVED") + "\n\nLIKELY / POSSIBLE / UNKNOWN: heuristic certainty labels; not guarantees.";
+    }
+
+    private String codeCommand(String args) throws Exception {
+        String[] p = args.trim().split("\\s+", 2); String lang = p.length > 0 ? p[0] : "curl"; String target = p.length > 1 ? p[1] : "example.com";
+        String url = TraceScanner.normalizeUrl(target);
+        return localized(R.string.code_integration, "code") + " — " + lang + "\n" + Trace31.safeCode(lang, url, url, 0, java.util.Collections.singletonMap("user-agent", "TRACE/3.1")) + "\nNo token, cookie, password, or authorization value is inserted.";
     }
 
     private String profileCommand(String target, boolean deep) throws Exception {
@@ -270,10 +299,10 @@ public final class MainActivity extends android.app.Activity {
     private void showScan() {
         content.removeAllViews();
         LinearLayout page = page();
-        page.addView(sectionHeading("SCAN", "One target, one evidence bundle, no server required."));
+        page.addView(sectionHeading(localized(R.string.target, "target"), "Scan → Verdict → Explanation → Details"));
         EditText target = edit("example.com or https://example.com", false);
         page.addView(target, new LinearLayout.LayoutParams(-1, dp(50)));
-        Button run = button("RUN SCAN", 11, BG);
+        Button run = button(localized(R.string.analyze, "analyze"), 11, BG);
         run.setTextColor(BG);
         run.setBackground(panelBackground(GREEN, GREEN));
         LinearLayout.LayoutParams runParams = new LinearLayout.LayoutParams(-1, dp(46));
@@ -287,6 +316,9 @@ public final class MainActivity extends android.app.Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.addView(output);
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        Button details = button(localized(R.string.technical_details, "details"), 10, MUTED);
+        details.setVisibility(View.GONE);
+        page.addView(details, new LinearLayout.LayoutParams(-1, dp(42)));
         run.setOnClickListener(v -> {
             String value = target.getText().toString().trim();
             if (value.isEmpty()) { output.setText("[-] Enter a target."); return; }
@@ -296,8 +328,8 @@ public final class MainActivity extends android.app.Activity {
                 try {
                     JSONObject result = scanner.scan(value);
                     TraceCase traceCase = store.save(value, result);
-                    String text = formatScan(result, traceCase.id) + "\n\n" + compactJson(result);
-                    runOnUiThread(() -> { output.setText(text); run.setEnabled(true); });
+                    String text = formatUserScan(result, traceCase.id);
+                    runOnUiThread(() -> { output.setText(text); details.setVisibility(View.VISIBLE); details.setOnClickListener(x -> output.setText(formatUserScan(result, traceCase.id) + "\n\n" + compactJson(result))); run.setEnabled(true); });
                 } catch (Exception e) {
                     runOnUiThread(() -> { output.setText("[-] ERROR  " + errorText(e)); run.setEnabled(true); });
                 }
@@ -369,7 +401,7 @@ public final class MainActivity extends android.app.Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.addView(output);
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        Button export = button("EXPORT JSON + HTML", 11, BG);
+        Button export = button(localized(R.string.copy, "copy") + " / EXPORT JSON + HTML", 11, BG);
         export.setTextColor(BG);
         export.setBackground(panelBackground(GREEN, GREEN));
         export.setOnClickListener(v -> {
@@ -377,6 +409,14 @@ public final class MainActivity extends android.app.Activity {
             catch (Exception e) { output.setText(output.getText() + "\n\n[-] Export failed: " + errorText(e)); }
         });
         page.addView(export, new LinearLayout.LayoutParams(-1, dp(46)));
+        LinearLayout copyRow = new LinearLayout(this);
+        Button copyJson = button("COPY JSON", 10, MUTED); copyJson.setOnClickListener(v -> copyText("TRACE JSON", traceCase.resultsJson));
+        Button copyEvidence = button("COPY EVIDENCE", 10, MUTED); copyEvidence.setOnClickListener(v -> copyText("TRACE EVIDENCE", output.getText().toString()));
+        Button copyCurl = button("COPY CURL", 10, MUTED); copyCurl.setOnClickListener(v -> { try { copyText("TRACE CURL", Trace31.safeCode("curl", traceCase.target, traceCase.target, 0, java.util.Collections.emptyMap())); } catch (Exception ignored) { } });
+        copyRow.addView(copyJson, new LinearLayout.LayoutParams(0, dp(42), 1)); copyRow.addView(copyEvidence, new LinearLayout.LayoutParams(0, dp(42), 1)); copyRow.addView(copyCurl, new LinearLayout.LayoutParams(0, dp(42), 1));
+        page.addView(copyRow);
+        Button share = button("SHARE CASE", 10, GREEN); share.setOnClickListener(v -> { android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_SEND); intent.setType("text/plain"); intent.putExtra(android.content.Intent.EXTRA_TEXT, output.getText().toString()); startActivity(android.content.Intent.createChooser(intent, "Share TRACE case")); });
+        page.addView(share, new LinearLayout.LayoutParams(-1, dp(42)));
         content.addView(page);
     }
 
@@ -409,11 +449,17 @@ public final class MainActivity extends android.app.Activity {
     private void showSettings() {
         content.removeAllViews();
         LinearLayout page = page();
-        page.addView(sectionHeading("SETTINGS", "No provider account or API key is required."));
+        page.addView(sectionHeading(localized(R.string.settings, "settings"), "No provider account or API key is required."));
         SharedPreferences prefs = getSharedPreferences("trace_settings", MODE_PRIVATE);
+        EditText languageField = edit("Language: tr | en | de | es | fr | it | pt | ru | ar | zh", false); languageField.setText(prefs.getString("language", language));
+        EditText modeField = edit("Mode: BEGINNER | STANDARD | DEVELOPER", false); modeField.setText(prefs.getString("mode", mode.name()));
         EditText timeout = edit("Scan timeout (seconds)", false); timeout.setText(prefs.getString("timeout", "9"));
         EditText bodyLimit = edit("Body size limit (KiB)", false); bodyLimit.setText(prefs.getString("bodyLimit", "256"));
         EditText watchInterval = edit("Background watch interval (hours)", false); watchInterval.setText(prefs.getString("watchInterval", "24"));
+        page.addView(label("GENERAL / LANGUAGE / DEVELOPER", 11, GREEN));
+        page.addView(languageField, new LinearLayout.LayoutParams(-1, dp(50)));
+        page.addView(modeField, new LinearLayout.LayoutParams(-1, dp(50)));
+        page.addView(label("Mode controls result density. Beginner hides raw JSON; Developer shows technical evidence, headers, sources, timing, and raw JSON.", 11, MUTED));
         page.addView(timeout, new LinearLayout.LayoutParams(-1, dp(50)));
         page.addView(bodyLimit, new LinearLayout.LayoutParams(-1, dp(50)));
         page.addView(watchInterval, new LinearLayout.LayoutParams(-1, dp(50)));
@@ -427,7 +473,9 @@ public final class MainActivity extends android.app.Activity {
         note.setTypeface(Typeface.MONOSPACE);
         page.addView(note);
         save.setOnClickListener(v -> {
-            prefs.edit().putString("timeout", timeout.getText().toString().trim()).putString("bodyLimit", bodyLimit.getText().toString().trim()).putString("watchInterval", watchInterval.getText().toString().trim()).apply();
+            language = Trace31.language(languageField.getText().toString().trim());
+            try { mode = Trace31.Mode.valueOf(modeField.getText().toString().trim().toUpperCase(Locale.ROOT)); } catch (Exception ignored) { mode = Trace31.Mode.BEGINNER; }
+            prefs.edit().putString("language", language).putString("mode", mode.name()).putString("timeout", timeout.getText().toString().trim()).putString("bodyLimit", bodyLimit.getText().toString().trim()).putString("watchInterval", watchInterval.getText().toString().trim()).apply();
             save.setText("SAVED LOCALLY");
         });
         content.addView(page);
@@ -455,6 +503,27 @@ public final class MainActivity extends android.app.Activity {
         return "[+] EXPORTED  " + store.export(this, traceCase).getAbsolutePath();
     }
 
+    private String formatUserScan(JSONObject result, String caseId) {
+        JSONObject risk = result.optJSONObject("risk");
+        String severity = risk == null ? "UNKNOWN" : risk.optString("severity", "UNKNOWN");
+        int confidence = risk == null ? 0 : risk.optInt("confidence", 0);
+        JSONArray findingsJson = risk == null ? null : risk.optJSONArray("findings");
+        java.util.ArrayList<String> findings = new java.util.ArrayList<>();
+        if (findingsJson != null) for (int i = 0; i < findingsJson.length(); i++) findings.add(findingsJson.optString(i));
+        Trace31.VerdictCard card = Trace31.verdict(severity, confidence, findings.size(), "UNKNOWN".equals(severity) ? 1 : 0, 0, findings, findings);
+        StringBuilder out = new StringBuilder();
+        out.append(localized(R.string.general_result, "general")).append("\n\n").append(card.label()).append("\n");
+        out.append("CONFIDENCE: ").append(card.confidence()).append("%\nCASE: ").append(caseId).append("\n\n");
+        out.append(localized(R.string.why, "why")).append("\n");
+        if (findings.isEmpty()) out.append("• Available evidence contains no high-signal threat finding.\n");
+        else for (String finding : findings) out.append("• ").append(finding).append('\n');
+        out.append("\n").append(localized(R.string.recommended_action, "action")).append("\n").append(card.action()).append("\n\n");
+        out.append("This assessment is based on available evidence and is not a security guarantee.\n\n");
+        out.append("TARGET: ").append(result.optString("target", "?"));
+        if (mode != Trace31.Mode.BEGINNER) out.append("\n\n").append(formatScan(result, caseId));
+        return out.toString();
+    }
+
     private String formatScan(JSONObject result, String caseId) {
         JSONObject http = result.optJSONObject("http");
         JSONObject dns = result.optJSONObject("dns");
@@ -476,7 +545,9 @@ public final class MainActivity extends android.app.Activity {
                 + "[+] TECHNOLOGY    " + technology + "\n"
                 + "[+] REPUTATION    " + providerCount + " provider modules\n"
                 + "[+] RISK          " + (risk == null ? "UNKNOWN" : risk.optString("severity", "UNKNOWN")) + "\n"
-                + "[+] CONFIDENCE    " + (risk == null ? "UNKNOWN" : risk.optString("confidence", "UNKNOWN")) + "\n"
+                + "[+] " + localized(R.string.source_diagnostics, "sources") + "  " + (reputation == null ? "UNKNOWN" : reputation.optString("status", "LOCAL")) + "\n"
+                + "[+] " + localized(R.string.scan_timing, "timing") + "  LOCAL TIMELINE\n"
+                + "[+] CONFIDENCE    " + (risk == null ? localized(R.string.unknown_verdict, "unknown") : risk.optString("confidence", "UNKNOWN")) + "\n"
                 + "[+] CASE          " + caseId;
     }
 
@@ -495,6 +566,11 @@ public final class MainActivity extends android.app.Activity {
             View parent = (View) terminalOutput.getParent();
             if (parent instanceof ScrollView) ((ScrollView) parent).fullScroll(View.FOCUS_DOWN);
         });
+    }
+
+    private void copyText(String label, String value) {
+        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard != null) clipboard.setPrimaryClip(android.content.ClipData.newPlainText(label, value));
     }
 
     private LinearLayout page() {
@@ -522,6 +598,11 @@ public final class MainActivity extends android.app.Activity {
         view.setTextColor(color);
         view.setFontFeatureSettings("tnum");
         return view;
+    }
+
+    private String localized(int resourceId, String key) {
+        if (language.equals(Trace31.language(Locale.getDefault().getLanguage()))) return getString(resourceId);
+        return Trace31.text(language, key);
     }
 
     private EditText edit(String hint, boolean password) {
@@ -583,6 +664,16 @@ public final class MainActivity extends android.app.Activity {
                 + "trace hash <path-or-hash>   local hash history\n"
                 + "trace reputation <domain>  provider modules\n"
                 + "trace risk <target>         explainable risk assessment\n"
+                + "trace explain <target>      human-readable link explanation\n"
+                + "trace verdict <target>      general verdict presentation\n"
+                + "trace sources <target>      source diagnostics\n"
+                + "trace timing <case>         scan timing\n"
+                + "trace code <lang> <target>  safe integration snippet\n"
+                + "trace config                local settings\n"
+                + "trace lang <code>           set one of 10 UI languages\n"
+                + "trace tags <case> <tags>    local case tags\n"
+                + "trace note <case> <text>    local case note\n"
+                + "trace favorite <case>       favorite a case\n"
                 + "trace compare <a> <b>       compare local cases\n"
                 + "trace history               local case list\n"
                 + "trace case <id>             reopen a case\n"

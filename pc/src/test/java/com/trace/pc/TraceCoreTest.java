@@ -1,7 +1,10 @@
 package com.trace.pc;
 
+import com.trace.core.Trace31;
 import com.trace.core.TraceCore;
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 
 public final class TraceCoreTest {
     public static void main(String[] args) {
@@ -11,6 +14,12 @@ public final class TraceCoreTest {
         if (!TraceCore.riskLevel(8, false, false).equals("HARDENING")) throw new AssertionError("hardening");
         boolean blocked=false; try { TraceCore.normalizeUrl("http://localhost/"); } catch (IllegalArgumentException expected) { blocked=true; }
         if (!blocked) throw new AssertionError("SSRF policy");
-        System.out.println("TRACE CORE TESTS: PASS");
+        if (Trace31.languages().size() != 10) throw new AssertionError("10 languages");
+        if (!Trace31.language("tr-TR").equals("tr")) throw new AssertionError("language normalization");
+        if (!Trace31.verdict("UNKNOWN", 20, 0, 2, 1, List.of(), List.of()).verdict().equals(Trace31.Verdict.UNVERIFIED)) throw new AssertionError("unknown verdict");
+        if (!Trace31.verdict("SUSPICIOUS", 80, 3, 0, 0, List.of("IDN"), List.of()).verdict().equals(Trace31.Verdict.SUSPICIOUS)) throw new AssertionError("suspicious verdict");
+        if (Trace31.safeCode("python", "https://example.com/?token=SECRET", "https://example.com/", 200, Map.of()).contains("SECRET")) throw new AssertionError("redaction");
+        if (Trace31.explainLink("https://a.example", "https://a.example", "https://b.example", 2, "LOGIN", true, false, false, true, 1).size() < 3) throw new AssertionError("link explain");
+        System.out.println("TRACE CORE + TRACE 3.1 TESTS: PASS");
     }
 }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TRACE</string>
+    <string name="general_result">GENEL SONUÇ</string>
+    <string name="why">NEDEN?</string>
+    <string name="recommended_action">NE YAPMALIYIM?</string>
+    <string name="technical_details">TEKNİK DETAYLARI GÖR</string>
+    <string name="settings">AYARLAR</string>
+    <string name="analyze">ANALİZ ET</string>
+    <string name="target">HEDEF</string>
+    <string name="unknown_verdict">GÜVENİLİRLİK DOĞRULANAMADI</string>
+    <string name="copy">KOPYALA</string>
+    <string name="code_integration">KOD / ENTEGRASYON</string>
+    <string name="source_diagnostics">KAYNAK DURUMLARI</string>
+    <string name="scan_timing">TARAMA SÜRESİ</string>
+</resources>

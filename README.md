@@ -1,4 +1,4 @@
-# TRACE 3.0
+# TRACE 3.1
 
 TRACE is a terminal-centric, evidence-first security-intelligence workstation for authorized defensive investigation. It runs as a native Android application and as a dependency-free Java PC client with a CLI and Swing GUI.
 
@@ -6,23 +6,50 @@ TRACE is a terminal-centric, evidence-first security-intelligence workstation fo
 
 ## Release downloads
 
-The latest release is [TRACE 3.0.0](https://github.com/just-ulas/trace/releases/tag/v3.0.0). Download links below are added only when the corresponding build succeeds:
+The latest release is [TRACE 3.1.0](https://github.com/just-ulas/trace/releases/tag/v3.1.0). Download links below are added only when the corresponding build succeeds:
 
 | Platform | Asset | Status |
 | --- | --- | --- |
-| Android | `TRACE-3.0.0-android.apk` | Built by Android CI |
-| Linux x64 | `TRACE-3.0.0-linux-x64.tar.gz` | Built and smoke-tested in this repository |
-| Windows x64 | `TRACE-3.0.0-windows-x64.zip` | Portable Java package with Windows launcher |
-| macOS ARM64 | `TRACE-3.0.0-macos-arm64.zip` | Portable Java package with macOS launcher |
-| macOS x64 | `TRACE-3.0.0-macos-x64.zip` | Portable Java package with macOS launcher |
+| Android | `TRACE-3.1.0-android.apk` | Built by Android CI |
+| Linux x64 | `TRACE-3.1.0-linux-x64.tar.gz` | Built and smoke-tested in this repository |
+| Windows x64 | `TRACE-3.1.0-windows-x64.zip` | Portable Java package with Windows launcher |
+| macOS ARM64 | `TRACE-3.1.0-macos-arm64.zip` | Portable Java package with macOS launcher |
+| macOS x64 | `TRACE-3.1.0-macos-x64.zip` | Portable Java package with macOS launcher |
 
 Every uploaded binary has a matching `.sha256` file. A platform is not described as available unless a real binary was produced and uploaded.
 
-## What is new in 3.0
+## What is new in 3.1
 
-TRACE 3.0 preserves the Android scanner, terminal, history, cases, reports, risk engine, Malware Guard, WorkManager watchlist, SSRF protections, and keyless behavior from 2.0. The major change is the addition of a real PC client and a dependency-free shared core.
+TRACE 3.1 preserves the Android scanner, terminal, history, cases, reports, risk engine, Malware Guard, WorkManager watchlist, SSRF protections, and keyless behavior from 2.0. The major change is the addition of a real PC client and a dependency-free shared core.
 
 The shared `TRACE Core` contains URL normalization, link structure analysis, page classification, and risk vocabulary. The PC client adds a real HTTP redirect collector, DNS/TLS/HTTP evidence collection, content and phishing heuristics, static file analysis, SHA-256/MD5 hashing, local cases, comparisons, reports, watchlist commands, and a native Swing GUI. Android continues to use its richer platform implementation while consuming the same core URL policy and evidence vocabulary.
+
+
+## TRACE 3.1 user experience
+
+TRACE now opens on a simple **Target → Analyze** flow. The result begins with a presentation-layer **GENERAL RESULT**: `RELIABLE / GÜVENİLİR GÖRÜNÜYOR`, `SUSPICIOUS / ŞÜPHELİ`, `THREAT / TEHDİT BULGUSU`, or `UNVERIFIED / GÜVENİLİRLİK DOĞRULANAMADI`. `UNKNOWN` and unavailable sources are never presented as safe. Every result includes **WHY?**, **WHAT SHOULD I DO?**, confidence, evidence count, and the explicit warning that an assessment is not a security guarantee.
+
+### Beginner, Standard, and Developer modes
+
+- **Beginner:** verdict, explanation, recommended action, target, and a technical-details button.
+- **Standard:** verdict plus important findings and destination details.
+- **Developer:** complete JSON, headers, TLS/DNS/HTTP evidence, redirect chain, source diagnostics, timing, case ID, risk calculation, and evidence graph data.
+
+Mode is persisted locally in Android Settings or with `trace config mode beginner|standard|developer` on PC.
+
+### Ten languages
+
+Android resource localization and the shared PC translation model cover Turkish, English, German, Spanish, French, Italian, Portuguese, Russian, Arabic, and Chinese. The command syntax remains stable across languages. Change language in Android Settings or with `trace lang tr` / `trace config language tr`.
+
+### Link explain and safe code output
+
+`trace link <url>` now combines URL structure with a safe fetch-based explanation. `trace explain <url>` describes likely login, payment, download, external-domain, nested-destination, redirect, and final-destination observations. Uncertain claims are kept as likely/possible/unknown.
+
+`trace code <language> <url>` produces observation-only cURL, Python, JavaScript, TypeScript, Java, Kotlin, Go, Rust, PowerShell, or Bash examples. Snippets are redacted and never include tokens, cookies, passwords, or authorization values. Android case details provide **COPY JSON**, **COPY EVIDENCE**, **COPY CURL**, **SHARE CASE**, and local report export actions.
+
+### Real settings and local case annotations
+
+Settings cover language, mode, timeout/body limits, watch interval, local-only privacy, optional intelligence, and developer detail visibility. PC cases support local timing, tags, notes, and favorites; Android cases remain app-private and shareable only when the user invokes Android Share.
 
 ## Intelligence model
 
@@ -58,7 +85,7 @@ Files are inspected locally and never executed or uploaded. The Android and PC c
 
 ## Android
 
-Install `TRACE-3.0.0-android.apk` from the v3.0.0 release. The Android client provides the terminal-first UI, scanner screen, dashboard, history/cases, reports, local settings, keyless intelligence, and WorkManager watchlist refresh.
+Install `TRACE-3.1.0-android.apk` from the v3.1.0 release. The Android client provides the terminal-first UI, scanner screen, dashboard, history/cases, reports, local settings, keyless intelligence, and WorkManager watchlist refresh.
 
 Build locally:
 
@@ -74,18 +101,18 @@ The output is `app/build/outputs/apk/debug/app-debug.apk`.
 The Linux package contains a real executable launcher and a Java runtime-compatible JAR. Java 17 or newer is required when running from source or the JAR.
 
 ```bash
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 scan https://example.com
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 link 'https://example.com/a?next=https%3A%2F%2Fgithub.com%2F'
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 deep example.com
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 file sample.apk
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 apk sample.apk
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 hash <hash>
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 case CASE-00001
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 history
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 compare CASE-00001 CASE-00002
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 report CASE-00001
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 watch example.com
-TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 gui
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 scan https://example.com
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 link 'https://example.com/a?next=https%3A%2F%2Fgithub.com%2F'
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 deep example.com
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 file sample.apk
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 apk sample.apk
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 hash <hash>
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 case CASE-00001
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 history
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 compare CASE-00001 CASE-00002
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 report CASE-00001
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 watch example.com
+TRACE-3.1.0-linux-x64/TRACE-3.1.0-linux-x64 gui
 ```
 
 Local PC cases and reports are stored under `~/.trace/cases`. Network failures are reported as `UNKNOWN / UNAVAILABLE`; saved cases, hashes, static file analysis, reports, and comparisons remain available offline.
@@ -139,7 +166,7 @@ This sandbox cannot emulate Android UI instrumentation or validate Windows/macOS
 
 ## Release history
 
-Existing releases and tags are preserved. TRACE 3.0 is published as a new `v3.0.0` release; previous v1.x and v2.x artifacts are not rewritten or deleted.
+Existing releases and tags are preserved. TRACE 3.1 is published as a new `v3.1.0` release; previous `v1.0.0`, `v2.0.0`, and `v3.0.0` artifacts are not rewritten or deleted.
 
 ## License
 

@@ -1,6 +1,33 @@
 # Changelog
 
-## [3.0.0] - 2026-10-02
+## [3.1.0] - 2026-10-02
+
+### Added
+
+- Two-layer result presentation: GENERAL RESULT, WHY, recommended action, confidence, evidence counts, and technical details. UNKNOWN and unavailable evidence never become SAFE.
+- Beginner, Standard, and Developer modes with persisted local settings.
+- Shared TRACE 3.1 presentation layer for verdict mapping, source diagnostics, stage timing, link explanation, ten-language translation keys, and safe code snippets.
+- `trace explain`, `trace verdict`, `trace sources`, `trace timing`, `trace code`, `trace tags`, `trace note`, `trace favorite`, `trace config`, and `trace lang` commands. Existing commands remain compatible.
+- Safe cURL/Python/JavaScript/TypeScript/Java/Kotlin/Go/Rust/PowerShell/Bash integration examples with token, cookie, password, and authorization redaction.
+- Android Target → Analyze start screen, localized result summary, technical-details reveal, copy JSON/evidence/cURL, share case, and expanded local Settings.
+- Android resource localization and shared PC translations for Turkish, English, German, Spanish, French, Italian, Portuguese, Russian, Arabic, and Chinese.
+- Real PC GUI content for Dashboard, Link Intelligence, and Settings rather than empty tab placeholders.
+- Persistent local PC case timing, tags, notes, and favorites.
+
+### Security and privacy
+
+- The evidence-first `THREAT`, `SUSPICIOUS`, `HARDENING`, `INFORMATIONAL`, and `UNKNOWN` risk vocabulary is preserved.
+- Link explanation remains read-only and safe; no exploit, credential, brute-force, upload, or evasion behavior was added.
+- Code output is observation-only and redacts sensitive query/header values.
+
+### Validation
+
+- PC core regression tests: PASS, including ten-language coverage, unknown/suspicious verdicts, link explain, and redaction.
+- Android unit tests: 10 tests, 0 failures.
+- Android lint: 0 issues.
+- Android debug APK: versionName 3.1.0, signed and verified.
+
+[3.0.0] - 2026-10-02
 
 ### What's new
 

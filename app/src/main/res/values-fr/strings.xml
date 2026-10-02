@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TRACE</string>
+    <string name="general_result">RÉSULTAT GÉNÉRAL</string>
+    <string name="why">POURQUOI ?</string>
+    <string name="recommended_action">QUE DOIS-JE FAIRE ?</string>
+    <string name="technical_details">DÉTAILS TECHNIQUES</string>
+    <string name="settings">PARAMÈTRES</string>
+    <string name="analyze">ANALYSER</string>
+    <string name="target">CIBLE</string>
+    <string name="unknown_verdict">FIABILITÉ NON VÉRIFIÉE</string>
+    <string name="copy">COPIER</string>
+    <string name="code_integration">CODE / INTÉGRATION</string>
+    <string name="source_diagnostics">SOURCES</string>
+    <string name="scan_timing">TEMPS D’ANALYSE</string>
+</resources>
