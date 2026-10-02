@@ -505,8 +505,8 @@ public final class MainActivity extends android.app.Activity {
 
     private String formatUserScan(JSONObject result, String caseId) {
         JSONObject risk = result.optJSONObject("risk");
-        String severity = risk == null ? "UNKNOWN" : risk.optString("severity", "UNKNOWN");
-        int confidence = risk == null ? 0 : risk.optInt("confidence", 0);
+        String severity = presentationRisk(risk == null ? "UNKNOWN" : risk.optString("severity", "UNKNOWN"));
+        int confidence = confidenceValue(risk == null ? "LOW" : risk.optString("confidence", "LOW"));
         JSONArray findingsJson = risk == null ? null : risk.optJSONArray("findings");
         java.util.ArrayList<String> findings = new java.util.ArrayList<>();
         if (findingsJson != null) for (int i = 0; i < findingsJson.length(); i++) findings.add(findingsJson.optString(i));
@@ -522,6 +522,22 @@ public final class MainActivity extends android.app.Activity {
         out.append("TARGET: ").append(result.optString("target", "?"));
         if (mode != Trace31.Mode.BEGINNER) out.append("\n\n").append(formatScan(result, caseId));
         return out.toString();
+    }
+
+    private String presentationRisk(String severity) {
+        switch (severity == null ? "UNKNOWN" : severity.toUpperCase(Locale.US)) {
+            case "HIGH": case "MEDIUM": return "SUSPICIOUS";
+            case "LOW": return "HARDENING";
+            case "INFO": case "INFORMATIONAL": return "INFORMATIONAL";
+            case "THREAT": return "THREAT";
+            default: return "UNKNOWN";
+        }
+    }
+
+    private int confidenceValue(String confidence) {
+        if ("HIGH".equalsIgnoreCase(confidence)) return 85;
+        if ("MEDIUM".equalsIgnoreCase(confidence)) return 65;
+        return "LOW".equalsIgnoreCase(confidence) ? 35 : 0;
     }
 
     private String formatScan(JSONObject result, String caseId) {

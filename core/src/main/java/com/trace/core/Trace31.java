@@ -43,7 +43,7 @@ public final class Trace31 {
             case "INFORMATIONAL" -> confidence >= 55 && evidenceCount > 0 ? Verdict.RELIABLE : Verdict.UNVERIFIED;
             default -> Verdict.UNVERIFIED;
         };
-        if (unknownCount > evidenceCount && v != Verdict.THREAT) v = Verdict.UNVERIFIED;
+        if ((unknownCount > evidenceCount || (unavailableSources > 0 && evidenceCount == 0)) && v != Verdict.THREAT) v = Verdict.UNVERIFIED;
         String label = switch (v) {
             case RELIABLE -> "RELIABLE / GÜVENİLİR GÖRÜNÜYOR";
             case HARDENING -> "HARDENING / GÜVENLİK EKSİKLERİ VAR";

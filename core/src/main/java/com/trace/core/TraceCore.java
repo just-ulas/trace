@@ -24,7 +24,12 @@ public final class TraceCore {
             if (uri.getPort() > 65535) throw new IllegalArgumentException("Invalid port");
             String host = uri.getHost().toLowerCase(Locale.ROOT);
             if (INTERNAL.matcher(host).find()) throw new IllegalArgumentException("Internal host is blocked");
-            return new URI(scheme, null, host, uri.getPort(), uri.getPath() == null || uri.getPath().isBlank() ? "/" : uri.getPath(), uri.getQuery(), null);
+            String path = uri.getRawPath() == null || uri.getRawPath().isBlank() ? "/" : uri.getRawPath();
+            StringBuilder canonical = new StringBuilder(scheme).append("://").append(host);
+            if (uri.getPort() >= 0) canonical.append(':').append(uri.getPort());
+            canonical.append(path);
+            if (uri.getRawQuery() != null && !uri.getRawQuery().isBlank()) canonical.append('?').append(uri.getRawQuery());
+            return URI.create(canonical.toString());
         } catch (IllegalArgumentException e) { throw e; } catch (Exception e) { throw new IllegalArgumentException("Invalid URL", e); }
     }
 
@@ -33,12 +38,13 @@ public final class TraceCore {
         String host = uri.getHost() == null ? "" : uri.getHost();
         out.put("scheme", String.valueOf(uri.getScheme())); out.put("host", host);
         out.put("port", String.valueOf(uri.getPort() < 0 ? ("https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80) : uri.getPort()));
-        out.put("path", uri.getPath() == null ? "/" : uri.getPath()); out.put("query", uri.getQuery() == null ? "" : uri.getQuery());
+        out.put("path", uri.getRawPath() == null ? "/" : uri.getRawPath()); out.put("query", uri.getRawQuery() == null ? "" : uri.getRawQuery());
         out.put("fragment", uri.getFragment() == null ? "" : uri.getFragment());
         String[] labels = host.split("\\."); out.put("subdomain", labels.length > 2 ? String.join(".", java.util.Arrays.copyOf(labels, labels.length - 2)) : "");
         out.put("tld", labels.length == 0 ? "" : labels[labels.length - 1]); out.put("punycode", host.contains("xn--") ? "true" : "false");
-        out.put("encoded", (uri.toString().contains("%") || uri.toString().contains("%2f")) ? "true" : "false");
-        out.put("nestedUrls", uri.toString().matches(".*https?%3A.*|.*https?://.*https?://.*") ? "true" : "false");
+        String raw = uri.toString();
+        out.put("encoded", raw.matches("(?i).*%[0-9a-f]{2}.*") ? "true" : "false");
+        out.put("nestedUrls", raw.matches("(?i).*https?%3a.*|.*https?://.*https?://.*") ? "true" : "false");
         out.put("downloadIndicator", uri.getPath() != null && uri.getPath().matches("(?i).*\\.(apk|exe|msi|dmg|zip|jar|pdf|docx?)($|[?]).*") ? "true" : "false");
         return out;
     }

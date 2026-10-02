@@ -9,7 +9,6 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.IDN;
 import java.net.InetAddress;
@@ -159,9 +158,9 @@ public final class TraceScanner {
         String domain = normalizeDomain(rawDomain);
         validatePublicHost(domain);
         JSONArray providers = new JSONArray();
-        providers.put(virusTotal(domain));
-        providers.put(urlhaus(domain));
-        providers.put(googleSafeBrowsing(domain));
+        providers.put(providerState("Local heuristics", "AVAILABLE", "RiskEngine and ContentAnalyzer run locally"));
+        providers.put(providerState("Cached intelligence", "NOT_QUERIED", "No cached provider result is available"));
+        providers.put(providerState("Optional public sources", "UNAVAILABLE", "TRACE does not require or store API keys"));
         JSONObject result = new JSONObject();
         result.put("domain", domain);
         result.put("providers", providers);
@@ -278,75 +277,6 @@ public final class TraceScanner {
             try { result.put(name, value.isEmpty() ? "missing" : value); } catch (Exception ignored) { }
         }
         return result;
-    }
-
-    private JSONObject virusTotal(String domain) {
-        String key = settings.getString("provider_virustotal", "").trim();
-        if (key.isEmpty()) return providerState("VirusTotal", "not_configured", "Add an API key in Settings");
-        try {
-            HttpURLConnection connection = (HttpURLConnection) new URL("https://www.virustotal.com/api/v3/domains/" + URLEncoder.encode(domain, "UTF-8")).openConnection();
-            configure(connection);
-            connection.setRequestProperty("x-apikey", key);
-            int status = connection.getResponseCode();
-            String body = readLimited(status >= 400 ? connection.getErrorStream() : connection.getInputStream(), 65536);
-            connection.disconnect();
-            JSONObject root = new JSONObject(body);
-            JSONObject data = root.optJSONObject("data");
-            JSONObject attributes = data == null ? null : data.optJSONObject("attributes");
-            JSONObject stats = attributes == null ? null : attributes.optJSONObject("last_analysis_stats");
-            JSONObject out = providerState("VirusTotal", status >= 200 && status < 300 ? "ok" : "error", "");
-            if (stats != null) out.put("lastAnalysisStats", stats);
-            return out;
-        } catch (Exception e) { return providerState("VirusTotal", "error", safeMessage(e)); }
-    }
-
-    private JSONObject urlhaus(String domain) {
-        try {
-            HttpURLConnection connection = (HttpURLConnection) new URL("https://urlhaus-api.abuse.ch/v1/host/").openConnection();
-            configure(connection);
-            connection.setDoOutput(true);
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-            try (OutputStream output = connection.getOutputStream()) {
-                output.write(("host=" + URLEncoder.encode(domain, "UTF-8")).getBytes(StandardCharsets.UTF_8));
-            }
-            int status = connection.getResponseCode();
-            String body = readLimited(status >= 400 ? connection.getErrorStream() : connection.getInputStream(), 65536);
-            connection.disconnect();
-            JSONObject root = new JSONObject(body);
-            JSONObject out = providerState("URLhaus", status >= 200 && status < 300 ? "ok" : "error", root.optString("query_status", ""));
-            out.put("urls", root.optInt("urls", 0));
-            return out;
-        } catch (Exception e) { return providerState("URLhaus", "error", safeMessage(e)); }
-    }
-
-    private JSONObject googleSafeBrowsing(String domain) {
-        String key = settings.getString("provider_google", "").trim();
-        if (key.isEmpty()) return providerState("Google Safe Browsing", "not_configured", "Add an API key in Settings");
-        try {
-            URL url = new URL("https://safebrowsing.googleapis.com/v4/threatMatches:find?key=" + URLEncoder.encode(key, "UTF-8"));
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            configure(connection);
-            connection.setDoOutput(true);
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type", "application/json");
-            JSONObject payload = new JSONObject();
-            JSONObject client = new JSONObject(); client.put("clientId", "trace"); client.put("clientVersion", "1.0.0");
-            payload.put("client", client);
-            JSONObject info = new JSONObject();
-            info.put("threatTypes", new JSONArray(Arrays.asList("MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE")));
-            info.put("platformTypes", new JSONArray(Arrays.asList("ANY_PLATFORM")));
-            info.put("threatEntryTypes", new JSONArray(Arrays.asList("URL")));
-            info.put("threatEntries", new JSONArray().put(new JSONObject().put("url", "https://" + domain + "/")));
-            payload.put("threatInfo", info);
-            try (OutputStream output = connection.getOutputStream()) { output.write(payload.toString().getBytes(StandardCharsets.UTF_8)); }
-            int status = connection.getResponseCode();
-            String body = readLimited(status >= 400 ? connection.getErrorStream() : connection.getInputStream(), 65536);
-            connection.disconnect();
-            JSONObject out = providerState("Google Safe Browsing", status >= 200 && status < 300 ? "ok" : "error", "");
-            out.put("matches", body.isEmpty() ? 0 : new JSONObject(body).optJSONArray("matches") == null ? 0 : new JSONObject(body).optJSONArray("matches").length());
-            return out;
-        } catch (Exception e) { return providerState("Google Safe Browsing", "error", safeMessage(e)); }
     }
 
     private JSONObject ipIntelligence(String host) throws Exception {

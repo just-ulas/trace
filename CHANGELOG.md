@@ -20,6 +20,14 @@
 - Link explanation remains read-only and safe; no exploit, credential, brute-force, upload, or evasion behavior was added.
 - Code output is observation-only and redacts sensitive query/header values.
 
+### Debugging hardening
+
+- Removed legacy API-key provider execution from Android scanning; reputation now reports explicit local, cached, and unavailable source states.
+- Preserved raw encoded query strings so nested destinations and encoded parameters are not silently decoded during normalization.
+- Separated `HARDENING` from `RELIABLE` in the presentation verdict layer.
+- Fixed Android risk severity/confidence mapping, PC timing persistence, metadata validation, and TRACE 3.1 User-Agent labeling.
+- Added regression coverage for raw query preservation, nested URL detection, unavailable-source handling, hardening presentation, and redaction.
+
 ### Validation
 
 - PC core regression tests: PASS, including ten-language coverage, unknown/suspicious verdicts, link explain, and redaction.

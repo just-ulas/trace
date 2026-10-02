@@ -76,7 +76,7 @@ public final class TracePc {
         URI start = TraceCore.normalizeUrl(target); List<Map<String,Object>> hops = new ArrayList<>(); URI current = start; HttpResponse<String> response = null;
         for (int i=0; i<8; i++) {
             validatePublic(current.getHost());
-            HttpRequest req = HttpRequest.newBuilder(current).timeout(java.time.Duration.ofSeconds(12)).header("User-Agent", "TRACE/3.0 PC Security Intelligence").GET().build();
+            HttpRequest req = HttpRequest.newBuilder(current).timeout(java.time.Duration.ofSeconds(12)).header("User-Agent", "TRACE/3.1 PC Security Intelligence").GET().build();
             try { response = client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)); }
             catch (Exception e) { return evidenceError(target, start, e); }
             Map<String,Object> hop = new LinkedHashMap<>(); hop.put("from", current.toString()); hop.put("status", response.statusCode()); hop.put("host", current.getHost()); hop.put("https", current.getScheme().equalsIgnoreCase("https")); hop.put("timestamp", Instant.now().toString());
@@ -175,11 +175,11 @@ public final class TracePc {
         String history()throws IOException{StringBuilder s=new StringBuilder("TRACE CASE HISTORY\n");try(var x=Files.list(dir).sorted()){x.forEach(p->{try{s.append(Files.readString(p)).append("\n");}catch(IOException ignored){}});}return s.toString();}
         String read(String id)throws IOException{Path p=dir.resolve(id.endsWith(".trace")?id:id+".trace");return Files.exists(p)?Files.readString(p):"Case not found: "+id;}
         String findHash(String h)throws IOException{try(var x=Files.list(dir)){return x.filter(p->{try{return Files.readString(p).contains(h);}catch(IOException e){return false;}}).map(p->p.getFileName().toString()).findFirst().orElse("UNKNOWN");}}
-        String timing(String id)throws IOException{return timing(id, "timing unavailable");}
+        String timing(String id)throws IOException{Path p=dir.resolve(id.endsWith(".trace")?id:id+".trace");return Files.exists(p)?Files.readString(p).lines().filter(x->x.startsWith("timing=")).findFirst().orElse("Timing unavailable for "+id):"Case not found: "+id;}
         String timing(String id,String value)throws IOException{Path p=dir.resolve(id.endsWith(".trace")?id:id+".trace");if(!Files.exists(p))return"Case not found: "+id;Files.writeString(p,"timing="+value+"\n",StandardOpenOption.APPEND);return value;}
-        String tags(String arg)throws IOException{String[] p=arg.split("\\s+",2);Path f=dir.resolve(p[0]+".tags");if(p.length>1)Files.writeString(f,p[1].replaceAll("[^A-Za-z0-9_, -]","")+"\n",StandardOpenOption.CREATE,StandardOpenOption.APPEND);return Files.exists(f)?Files.readString(f):"TAGS " + p[0] + "\n";}
-        String note(String arg)throws IOException{String[] p=arg.split("\\s+",2);if(p.length<2)return"Usage: trace note CASE-00001 note text";Path f=dir.resolve(p[0]+".notes");Files.writeString(f,p[1]+"\n",StandardOpenOption.CREATE,StandardOpenOption.APPEND);return"NOTE SAVED locally for "+p[0];}
-        String favorite(String id)throws IOException{Path f=dir.resolve(id+".favorite");Files.writeString(f,"favorite=true\n");return"FAVORITE SAVED locally for "+id;}
+        String tags(String arg)throws IOException{String[] p=arg.split("\\s+",2);if(!Files.exists(dir.resolve(p[0]+".trace")))return"Case not found: "+p[0];Path f=dir.resolve(p[0]+".tags");if(p.length>1)Files.writeString(f,p[1].replaceAll("[^A-Za-z0-9_, -]","")+"\n",StandardOpenOption.CREATE,StandardOpenOption.APPEND);return Files.exists(f)?Files.readString(f):"TAGS " + p[0] + "\n";}
+        String note(String arg)throws IOException{String[] p=arg.split("\\s+",2);if(p.length<2)return"Usage: trace note CASE-00001 note text";if(!Files.exists(dir.resolve(p[0]+".trace")))return"Case not found: "+p[0];Path f=dir.resolve(p[0]+".notes");Files.writeString(f,p[1]+"\n",StandardOpenOption.CREATE,StandardOpenOption.APPEND);return"NOTE SAVED locally for "+p[0];}
+        String favorite(String id)throws IOException{if(!Files.exists(dir.resolve(id+".trace")))return"Case not found: "+id;Path f=dir.resolve(id+".favorite");Files.writeString(f,"favorite=true\n");return"FAVORITE SAVED locally for "+id;}
         String compare(String a,String b)throws IOException{return "COMPARE\nNEW/REMOVED/CHANGED/UNCHANGED\nA:\n"+read(a)+"\nB:\n"+read(b)+"\nEvidence fields: DNS IP TLS CERTIFICATE REDIRECT HEADERS CONTENT FORMS TECHNOLOGY RISK";}
         String report(String id)throws IOException{String data=read(id);Path p=dir.resolve(id+".html");Files.writeString(p,"<!doctype html><meta charset='utf-8'><title>TRACE "+id+"</title><style>body{background:#080c0f;color:#d7e6dd;font:14px monospace;padding:32px}pre{white-space:pre-wrap}</style><h1>TRACE SECURITY REPORT</h1><pre>"+data.replace("&","&amp;").replace("<","&lt;")+"</pre><p>UNKNOWN is not SAFE. Static report; evidence timestamped locally.</p>");return "REPORT: "+p.toAbsolutePath();}
     }

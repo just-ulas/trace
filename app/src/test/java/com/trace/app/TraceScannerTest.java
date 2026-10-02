@@ -63,4 +63,17 @@ public class TraceScannerTest {
         org.json.JSONObject graph = IntelligenceUtils.graph(evidence);
         assertEquals(2, graph.optJSONArray("nodes").length());
     }
+
+    @Test
+    public void riskPresentationKeepsHardeningDistinctFromSuspicious() throws Exception {
+        org.json.JSONObject evidence = new org.json.JSONObject();
+        evidence.put("securityHeaders", new org.json.JSONObject()
+                .put("content-security-policy", "missing")
+                .put("strict-transport-security", "present")
+                .put("x-content-type-options", "present")
+                .put("x-frame-options", "present"));
+        org.json.JSONObject risk = RiskEngine.evaluate(evidence);
+        assertEquals("LOW", risk.optString("severity"));
+        assertEquals("MEDIUM", risk.optString("confidence"));
+    }
 }
