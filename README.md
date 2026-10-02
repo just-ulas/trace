@@ -1,6 +1,6 @@
 # TRACE
 
-TRACE is a local-first Android web intelligence tool for authorized security research and defensive investigation. It provides a professional terminal-style interface for collecting **DNS, TLS, HTTP, redirect, header, technology, and optional reputation evidence** directly from the Android device's network connection.
+TRACE 2.0 is a local-first Android security-intelligence workstation for authorized defensive investigation. Its **TRACE Intelligence Engine** collects DNS, IP, TLS, HTTP, redirect, header, technology, static content, threat-indicator, risk, evidence-graph, case, and report data directly from the Android device's network connection.
 
 > TRACE is read-only by design. It does not exploit, brute-force, attack credentials, flood services, bypass controls, or provide stealth/evasion features.
 
@@ -14,9 +14,13 @@ TRACE is a local-first Android web intelligence tool for authorized security res
 - Security-header inspection
 - Technology hints from response headers and HTML fingerprints
 - Modular VirusTotal, URLhaus, and Google Safe Browsing provider support
-- API keys entered through Settings and stored only in local Android app storage
+- Keyless operation: there is no API-key screen and no provider account requirement
 - Local case history with `CASE-00001` identifiers
 - JSON evidence and self-contained HTML report export
+- Explainable risk engine with severity, confidence, evidence, source, reason, and timestamp
+- Static phishing heuristics and local Malware Guard for files and APK metadata
+- Evidence graph, scan comparison, local watchlist, and WorkManager refresh
+- Offline access to saved cases, reports, hashes, heuristics, and cached source state
 - Dark, minimal, monospace UI with no backend/server requirement
 
 ## Screenshots
@@ -33,7 +37,7 @@ Download the APK from the [latest GitHub release](https://github.com/just-ulas/t
 
 ## Android APK
 
-The repository includes a reproducible Gradle project. GitHub Actions builds the debug APK on pushes and pull requests and attaches a tagged APK to GitHub Releases.
+The repository includes a reproducible Gradle project. GitHub Actions builds the debug APK on pushes and pull requests and attaches a tagged APK to GitHub Releases. The current release is [TRACE v2.0.0](https://github.com/just-ulas/trace/releases/tag/v2.0.0).
 
 Local build:
 
@@ -66,32 +70,44 @@ $ trace scan example.com
 
 All network work is asynchronous so the interface remains responsive. The **SCAN** tab provides the same full scan as a form, while **HISTORY** and **CASES** reopen locally stored evidence.
 
-## Terminal commands
+## TRACE 2.0 terminal commands
 
 | Command | Purpose |
 | --- | --- |
 | `trace scan <target>` | Full scan and save a local case |
+| `trace quick <target>` | Fast safe analysis |
+| `trace deep <target>` | Full intelligence pipeline |
 | `trace dns <domain>` | A / AAAA / MX / NS / TXT / CNAME records |
 | `trace tls <domain>` | Certificate and cipher information |
 | `trace headers <url>` | Response and security headers |
 | `trace redirects <url>` | Safe redirect chain |
 | `trace tech <url>` | Web server, framework, CMS, and CDN hints |
+| `trace domain <domain>` | Keyless public RDAP domain data |
+| `trace ip <host>` | IP family, reverse DNS, and scope |
+| `trace file <path>` | Local static file/APK analysis |
+| `trace hash <path-or-hash>` | Local hashes and case history lookup |
 | `trace reputation <domain>` | Provider module results |
+| `trace risk <target>` | Explainable risk assessment |
+| `trace compare <caseA> <caseB>` | Compare two local scans |
 | `trace history` | Local case list |
 | `trace case <id>` | Reopen a case |
+| `trace watch <target>` | Add a local watch target |
+| `trace unwatch <target>` | Remove a watch target |
+| `trace watches` | List watch targets |
 | `trace export <id>` | Write JSON and HTML reports |
 | `trace clear` | Clear the terminal view |
 | `trace help` | Show command help |
 
-## Provider system
+## Keyless intelligence sources
 
-Provider integrations are modular and optional:
+Provider integrations are modular and optional. TRACE never asks the user to create an account or enter an API key:
 
 - **URLhaus** is queried without a key.
-- **VirusTotal** accepts a user-supplied API key in Settings.
-- **Google Safe Browsing** accepts a user-supplied API key in Settings.
+- Public DNS-over-HTTPS, RDAP, and URLhaus-compatible keyless requests are used where appropriate.
+- If a source is unavailable, rate-limited, stale, or unsupported, TRACE records that state as evidence and continues the pipeline.
+- A missing source never becomes a fabricated safe or malicious verdict.
 
-Keys are never committed to source, written to cases, or included in GitHub Actions. If a provider is not configured or unavailable, the case records that provider's state without failing the core DNS/TLS/HTTP scan.
+TRACE's local heuristics and static analysis remain available without network access.
 
 ## Security
 
@@ -105,6 +121,7 @@ TRACE applies the following URL safety controls before every request:
 - Redirect chains stop after eight hops.
 - Response bodies are capped at 256 KiB.
 - Network operations have connect/read timeouts.
+- APKs and files are never executed, uploaded, or passed to a sandbox bypass.
 
 TRACE is intended for targets the operator is authorized to inspect.
 
@@ -120,6 +137,8 @@ Android Activity
   │     ├── TLS certificate collector
   │     ├── Technology detector
   │     └── Reputation provider modules
+  ├── RiskEngine / ContentAnalyzer / MalwareGuard
+  ├── WatchWorker (WorkManager) + WatchlistStore
   └── CaseStore (SharedPreferences + app-private Documents export)
 ```
 
