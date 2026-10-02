@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-exec java -jar "$(dirname "$0")/TRACE-3.0.0-linux-x64.jar" "$@"

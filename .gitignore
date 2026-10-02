@@ -13,3 +13,4 @@ app/debug/
 *.aab
 *.jks
 *.keystore
+pc/dist/
