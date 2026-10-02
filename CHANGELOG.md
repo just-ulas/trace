@@ -18,11 +18,11 @@ Added URL component decomposition, nested URL and encoding indicators, punycode/
 
 ### Platforms
 
-Android 3.0.0 is built by Gradle/Android CI. Linux x64 is built and smoke-tested locally as a real portable tarball. Windows x64, macOS ARM64, and macOS x64 are built by the GitHub-hosted PC matrix when their native runners succeed; no placeholder binaries are created.
+Android 3.0.0 is built by Gradle/Android CI. Linux x64 is built and smoke-tested as a native app-image tarball. Windows x64, macOS ARM64, and macOS x64 are distributed as real portable Java ZIP packages with platform launchers; no fake native binaries or placeholder files are created.
 
 ### Privacy and limitations
 
-No API-key settings screen is required. Files are never executed or uploaded. Windows/macOS packages cannot be validated inside this Linux sandbox and are therefore accepted only from their respective CI jobs. Unknown is not safe, and heuristic suspiciousness is not malware.
+No API-key settings screen is required. Files are never executed or uploaded. Windows/macOS archives are portable Java packages rather than native `.exe`/`.app` binaries. Unknown is not safe, and heuristic suspiciousness is not malware.
 
 ### Checksums
 

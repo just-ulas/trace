@@ -12,9 +12,9 @@ The latest release is [TRACE 3.0.0](https://github.com/just-ulas/trace/releases/
 | --- | --- | --- |
 | Android | `TRACE-3.0.0-android.apk` | Built by Android CI |
 | Linux x64 | `TRACE-3.0.0-linux-x64.tar.gz` | Built and smoke-tested in this repository |
-| Windows x64 | `TRACE-3.0.0-windows-x64.zip` | Built by Windows CI when the v3 tag workflow succeeds |
-| macOS ARM64 | `TRACE-3.0.0-macos-arm64.zip` | Built by macOS CI when the v3 tag workflow succeeds |
-| macOS x64 | `TRACE-3.0.0-macos-x64.zip` | Built by macOS CI when the v3 tag workflow succeeds |
+| Windows x64 | `TRACE-3.0.0-windows-x64.zip` | Portable Java package with Windows launcher |
+| macOS ARM64 | `TRACE-3.0.0-macos-arm64.zip` | Portable Java package with macOS launcher |
+| macOS x64 | `TRACE-3.0.0-macos-x64.zip` | Portable Java package with macOS launcher |
 
 Every uploaded binary has a matching `.sha256` file. A platform is not described as available unless a real binary was produced and uploaded.
 
@@ -133,7 +133,7 @@ PC client
 
 ## Build matrix and limitations
 
-The repository has Android CI plus a PC matrix for Windows x64, Linux x64, macOS ARM64, and macOS x64. The Linux package is built and smoke-tested in the current environment. Windows and macOS native packages are produced only by their respective GitHub-hosted runners; if a runner or native packager fails, that platform is omitted from the release rather than represented by a placeholder.
+The repository has Android CI plus a PC matrix for Windows x64, Linux x64, macOS ARM64, and macOS x64. Linux is distributed as a native app-image tarball. Windows and macOS are distributed as real portable Java ZIP packages with platform launchers; they do not pretend to be native `.exe` or `.app` binaries. A package is omitted rather than represented by a placeholder if its build does not produce the expected archive.
 
 This sandbox cannot emulate Android UI instrumentation or validate Windows/macOS binaries locally. The CI workflow is the source of truth for those platform builds.
 
