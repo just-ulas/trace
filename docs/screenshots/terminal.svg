@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect width="1200" height="760" fill="#080c0f"/>
+  <rect x="40" y="32" width="1120" height="696" rx="12" fill="#0d1418" stroke="#273a40" stroke-width="2"/>
+  <text x="76" y="92" fill="#66e3a6" font-family="monospace" font-size="30" font-weight="700">TRACE</text>
+  <text x="76" y="120" fill="#91a89b" font-family="monospace" font-size="13">LOCAL-FIRST / WEB INTELLIGENCE / v1.0.0</text>
+  <text x="1020" y="92" fill="#66e3a6" font-family="monospace" font-size="14">● ONLINE</text>
+  <line x1="76" y1="150" x2="1124" y2="150" stroke="#273a40"/>
+  <text x="80" y="184" fill="#66e3a6" font-family="monospace" font-size="14">TERMINAL</text>
+  <text x="205" y="184" fill="#91a89b" font-family="monospace" font-size="14">SCAN</text>
+  <text x="280" y="184" fill="#91a89b" font-family="monospace" font-size="14">HISTORY</text>
+  <text x="390" y="184" fill="#91a89b" font-family="monospace" font-size="14">CASES</text>
+  <text x="480" y="184" fill="#91a89b" font-family="monospace" font-size="14">REPORTS</text>
+  <text x="590" y="184" fill="#91a89b" font-family="monospace" font-size="14">SETTINGS</text>
+  <rect x="76" y="212" width="1048" height="400" rx="5" fill="#10191d" stroke="#273a40"/>
+  <text x="100" y="252" fill="#d7e6dd" font-family="monospace" font-size="16">TRACE / LOCAL-FIRST WEB INTELLIGENCE</text>
+  <text x="100" y="284" fill="#91a89b" font-family="monospace" font-size="14">Read-only collection. Targets are validated before every request.</text>
+  <text x="100" y="332" fill="#66e3a6" font-family="monospace" font-size="16">$ trace scan example.com</text>
+  <text x="100" y="372" fill="#66e3a6" font-family="monospace" font-size="16">[+] TARGET        example.com</text>
+  <text x="100" y="402" fill="#66e3a6" font-family="monospace" font-size="16">[+] DNS           OK</text>
+  <text x="100" y="432" fill="#66e3a6" font-family="monospace" font-size="16">[+] TLS           VALID</text>
+  <text x="100" y="462" fill="#66e3a6" font-family="monospace" font-size="16">[+] HTTP          200</text>
+  <text x="100" y="492" fill="#66e3a6" font-family="monospace" font-size="16">[+] REDIRECTS     0</text>
+  <text x="100" y="522" fill="#66e3a6" font-family="monospace" font-size="16">[+] TECHNOLOGY    nginx</text>
+  <text x="100" y="552" fill="#66e3a6" font-family="monospace" font-size="16">[+] CASE          CASE-00001</text>
+  <rect x="76" y="640" width="930" height="48" rx="4" fill="#10191d" stroke="#273a40"/>
+  <text x="96" y="671" fill="#91a89b" font-family="monospace" font-size="15">trace scan example.com</text>
+  <rect x="1018" y="640" width="106" height="48" rx="4" fill="#66e3a6"/>
+  <text x="1046" y="671" fill="#080c0f" font-family="monospace" font-size="15" font-weight="700">RUN</text>
+</svg>
