@@ -13,7 +13,7 @@ case "$PLATFORM" in
   *) echo "Unsupported platform: $PLATFORM" >&2; exit 2;;
 esac
 jar --create --file "$OUT/$NAME.jar" --main-class com.trace.pc.TracePc -C "$OUT/classes" .
-if command -v jpackage >/dev/null 2>&1; then
+if [[ "$PLATFORM" == linux-* ]] && command -v jpackage >/dev/null 2>&1; then
   APPDIR="$OUT/${NAME}-app"
   rm -rf "$APPDIR" "$OUT/$NAME.zip" "$OUT/$NAME.tar.gz"
   INPUT="$(mktemp -d)"
@@ -21,9 +21,21 @@ if command -v jpackage >/dev/null 2>&1; then
   jpackage --type app-image --name "$NAME" --input "$INPUT" --main-jar "$NAME.jar" --main-class com.trace.pc.TracePc --dest "$OUT" --app-version 3.0.0
   rm -rf "$INPUT"
   mv "$OUT/$NAME" "$APPDIR"
-  if [[ "$PLATFORM" == windows-* || "$PLATFORM" == macos-* ]]; then jar --create --file "$OUT/$NAME.zip" -C "$OUT" "${NAME}-app"; fi
-  if [[ "$PLATFORM" == linux-* ]]; then tar -C "$OUT" -czf "$OUT/$NAME.tar.gz" "${NAME}-app"; fi
+  tar -C "$OUT" -czf "$OUT/$NAME.tar.gz" "${NAME}-app"
 else
-  echo "jpackage unavailable; jar is a valid PC client but no native package was produced."
+  # Windows and macOS use a real portable Java distribution. No fake native binary is emitted.
+  PKGDIR="$OUT/${NAME}-package"
+  rm -rf "$PKGDIR" "$OUT/$NAME.zip"
+  mkdir -p "$PKGDIR"
+  cp "$OUT/$NAME.jar" "$PKGDIR/"
+  if [[ "$PLATFORM" == windows-* ]]; then
+    printf '@echo off\r\njava -jar "%%~dp0%s.jar" %%*\r\n' "$NAME" > "$PKGDIR/TRACE.bat"
+  else
+    printf '#!/usr/bin/env bash\nexec java -jar "$(dirname "$0")/%s.jar" "$@"\n' "$NAME" > "$PKGDIR/TRACE"
+    chmod +x "$PKGDIR/TRACE"
+  fi
+  jar --create --file "$OUT/$NAME.zip" -C "$OUT" "${NAME}-package"
 fi
-for f in "$OUT"/$NAME.zip "$OUT"/$NAME.tar.gz; do [[ -f "$f" ]] && sha256sum "$f" > "$f.sha256"; done
+for f in "$OUT"/$NAME.zip "$OUT"/$NAME.tar.gz; do
+  if [[ -f "$f" ]]; then sha256sum "$f" > "$f.sha256"; fi
+done
