@@ -40,14 +40,29 @@ jobs:
         with:
           name: trace-${{ matrix.platform }}-${{ github.run_number }}
           path: |
-            pc/dist/TRACE-3.0.0-*.*
-            pc/dist/TRACE-3.0.0-*/
-      - name: Publish tagged PC release assets
-        if: startsWith(github.ref, 'refs/tags/v3.0.0')
+            pc/dist/TRACE-3.0.0-*.zip
+            pc/dist/TRACE-3.0.0-*.zip.sha256
+            pc/dist/TRACE-3.0.0-*.tar.gz
+            pc/dist/TRACE-3.0.0-*.tar.gz.sha256
+  publish:
+    name: Publish PC release assets
+    if: startsWith(github.ref, 'refs/tags/v3.0.0')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download successful platform packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: trace-*-*
+          path: pc-release
+          merge-multiple: true
+      - name: Upload PC release assets
         shell: bash
         run: |
           shopt -s nullglob
-          files=(pc/dist/TRACE-3.0.0-*.zip pc/dist/TRACE-3.0.0-*.tar.gz pc/dist/TRACE-3.0.0-*.sha256)
+          files=(pc-release/TRACE-3.0.0-*.zip pc-release/TRACE-3.0.0-*.tar.gz pc-release/TRACE-3.0.0-*.sha256)
           if ((${#files[@]})); then gh release upload v3.0.0 "${files[@]}" --repo "${GITHUB_REPOSITORY}" --clobber; fi
         env:
           GH_TOKEN: ${{ github.token }}

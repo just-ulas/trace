@@ -37,5 +37,7 @@ else
   jar --create --file "$OUT/$NAME.zip" -C "$OUT" "${NAME}-package"
 fi
 for f in "$OUT"/$NAME.zip "$OUT"/$NAME.tar.gz; do
-  if [[ -f "$f" ]]; then sha256sum "$f" > "$f.sha256"; fi
+  if [[ -f "$f" ]]; then
+    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$f" > "$f.sha256"; else shasum -a 256 "$f" > "$f.sha256"; fi
+  fi
 done
