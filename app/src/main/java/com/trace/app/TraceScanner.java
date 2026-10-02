@@ -1,5 +1,6 @@
 package com.trace.app;
 
+import com.trace.core.TraceCore;
 import android.content.Context;
 import android.content.SharedPreferences;
 
@@ -168,18 +169,7 @@ public final class TraceScanner {
     }
 
     public static String normalizeUrl(String input) throws Exception {
-        if (input == null || input.trim().isEmpty()) throw new IllegalArgumentException("Target is empty");
-        String raw = input.trim();
-        if (!raw.matches("^[A-Za-z][A-Za-z0-9+.-]*://.*$")) raw = "https://" + raw;
-        URI uri = new URI(raw);
-        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.US);
-        if (!("http".equals(scheme) || "https".equals(scheme))) throw new IllegalArgumentException("Only HTTP and HTTPS are supported");
-        if (uri.getUserInfo() != null) throw new IllegalArgumentException("User-info URLs are not allowed");
-        if (uri.getHost() == null || uri.getHost().isEmpty()) throw new IllegalArgumentException("URL host is missing");
-        if (uri.getPort() > 65535) throw new IllegalArgumentException("Invalid port");
-        URI clean = new URI(scheme, null, uri.getHost(), uri.getPort(),
-                uri.getPath() == null || uri.getPath().isEmpty() ? "/" : uri.getPath(), uri.getQuery(), null);
-        return clean.toString();
+        return TraceCore.normalizeUrl(input).toString();
     }
 
     public static String normalizeDomain(String input) {

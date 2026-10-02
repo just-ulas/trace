@@ -90,7 +90,7 @@ public final class MainActivity extends android.app.Activity {
         header.addView(status, new LinearLayout.LayoutParams(-2, dp(40)));
         root.addView(header);
 
-        TextView subtitle = label("LOCAL-FIRST  /  SECURITY INTELLIGENCE  /  v2.0.0", 10, MUTED);
+        TextView subtitle = label("LOCAL-FIRST  /  SECURITY INTELLIGENCE  /  v3.0.0", 10, MUTED);
         subtitle.setPadding(0, 0, 0, dp(10));
         root.addView(subtitle);
 

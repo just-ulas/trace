@@ -1,160 +1,145 @@
-# TRACE
+# TRACE 3.0
 
-TRACE 2.0 is a local-first Android security-intelligence workstation for authorized defensive investigation. Its **TRACE Intelligence Engine** collects DNS, IP, TLS, HTTP, redirect, header, technology, static content, threat-indicator, risk, evidence-graph, case, and report data directly from the Android device's network connection.
+TRACE is a terminal-centric, evidence-first security-intelligence workstation for authorized defensive investigation. It runs as a native Android application and as a dependency-free Java PC client with a CLI and Swing GUI.
 
-> TRACE is read-only by design. It does not exploit, brute-force, attack credentials, flood services, bypass controls, or provide stealth/evasion features.
+> TRACE is read-only by design. It does not exploit, brute-force credentials, flood services, bypass controls, execute files, or provide stealth/evasion features.
 
-## Features
+## Release downloads
 
-- Terminal commands that invoke real scanner functions
-- HTTP/HTTPS URL normalization and status inspection
-- Redirect chain collection with re-validation at every hop
-- DNS-over-HTTPS lookups for A, AAAA, MX, NS, TXT, and CNAME records
-- TLS certificate subject, issuer, validity, SAN count, and cipher details
-- Security-header inspection
-- Technology hints from response headers and HTML fingerprints
-- Modular VirusTotal, URLhaus, and Google Safe Browsing provider support
-- Keyless operation: there is no API-key screen and no provider account requirement
-- Local case history with `CASE-00001` identifiers
-- JSON evidence and self-contained HTML report export
-- Explainable risk engine with severity, confidence, evidence, source, reason, and timestamp
-- Static phishing heuristics and local Malware Guard for files and APK metadata
-- Evidence graph, scan comparison, local watchlist, and WorkManager refresh
-- Offline access to saved cases, reports, hashes, heuristics, and cached source state
-- Dark, minimal, monospace UI with no backend/server requirement
+The latest release is [TRACE 3.0.0](https://github.com/just-ulas/trace/releases/tag/v3.0.0). Download links below are added only when the corresponding build succeeds:
 
-## Screenshots
+| Platform | Asset | Status |
+| --- | --- | --- |
+| Android | `TRACE-3.0.0-android.apk` | Built by Android CI |
+| Linux x64 | `TRACE-3.0.0-linux-x64.tar.gz` | Built and smoke-tested in this repository |
+| Windows x64 | `TRACE-3.0.0-windows-x64.zip` | Built by Windows CI when the v3 tag workflow succeeds |
+| macOS ARM64 | `TRACE-3.0.0-macos-arm64.zip` | Built by macOS CI when the v3 tag workflow succeeds |
+| macOS x64 | `TRACE-3.0.0-macos-x64.zip` | Built by macOS CI when the v3 tag workflow succeeds |
 
-### Terminal UI preview
+Every uploaded binary has a matching `.sha256` file. A platform is not described as available unless a real binary was produced and uploaded.
 
-![TRACE terminal UI preview](docs/screenshots/terminal.svg)
+## What is new in 3.0
 
-The APK renders this same terminal-first visual language natively on Android.
+TRACE 3.0 preserves the Android scanner, terminal, history, cases, reports, risk engine, Malware Guard, WorkManager watchlist, SSRF protections, and keyless behavior from 2.0. The major change is the addition of a real PC client and a dependency-free shared core.
 
-## Installation
+The shared `TRACE Core` contains URL normalization, link structure analysis, page classification, and risk vocabulary. The PC client adds a real HTTP redirect collector, DNS/TLS/HTTP evidence collection, content and phishing heuristics, static file analysis, SHA-256/MD5 hashing, local cases, comparisons, reports, watchlist commands, and a native Swing GUI. Android continues to use its richer platform implementation while consuming the same core URL policy and evidence vocabulary.
 
-Download the APK from the [latest GitHub release](https://github.com/just-ulas/trace/releases/latest), enable installation from the browser or file manager when Android requests it, and install. No server, VPS, Docker, PostgreSQL, Redis, or nginx setup is required.
+## Intelligence model
 
-## Android APK
+### Link Intelligence
 
-The repository includes a reproducible Gradle project. GitHub Actions builds the debug APK on pushes and pull requests and attaches a tagged APK to GitHub Releases. The current release is [TRACE v2.0.0](https://github.com/just-ulas/trace/releases/tag/v2.0.0).
+`trace link <url>` decomposes scheme, host, port, path, query, fragment, subdomain, TLD, punycode, encoding, nested URLs, and download indicators. `trace scan` records the original URL, normalized URL, final destination, redirect chain, page type, title, forms, password-field observations, external form actions, and technology hints.
 
-Local build:
+Each redirect hop records status, source and destination host, HTTPS state, cross-origin state, and a timestamp. Redirect targets are normalized and revalidated against the SSRF policy before the next request.
+
+### Page Understanding
+
+Static content is classified conservatively as `LOGIN`, `PAYMENT`, `SEARCH`, `STORE`, `NEWS`, `BLOG`, `DOWNLOAD`, `SOCIAL`, or `UNKNOWN`. A heuristic finding is not treated as proof of maliciousness.
+
+### Threat and risk engine
+
+TRACE keeps these concepts separate:
+
+- `THREAT`: known malicious evidence only.
+- `SUSPICIOUS`: heuristic or phishing indicators that require review.
+- `HARDENING`: missing controls such as CSP or HSTS.
+- `INFORMATIONAL`: observable facts without a risk claim.
+- `UNKNOWN`: unavailable or insufficient evidence.
+
+`UNKNOWN` is never converted into `SAFE`, and a heuristic is never silently upgraded to `THREAT`.
+
+### Phishing analysis
+
+The engine looks for IDN/punycode, encoded destinations, lookalike or sensitive paths, redirect complexity, password forms, cross-origin form actions, iframes, mixed content, suspicious parameters, and download anomalies.
+
+### Malware Guard
+
+Files are inspected locally and never executed or uploaded. The Android and PC clients support static hashing and format indicators for APK/ZIP/JAR, DEX markers, PDF, HTML/JavaScript, EXE/ELF-style metadata, embedded URLs, suspicious strings, extension mismatch, and APK archive components. Results remain evidence-based and can be `UNKNOWN` when a parser or source is unavailable.
+
+## Android
+
+Install `TRACE-3.0.0-android.apk` from the v3.0.0 release. The Android client provides the terminal-first UI, scanner screen, dashboard, history/cases, reports, local settings, keyless intelligence, and WorkManager watchlist refresh.
+
+Build locally:
 
 ```bash
-./gradlew testDebugUnitTest assembleDebug
+export ANDROID_HOME=/path/to/android-sdk
+./gradlew testDebugUnitTest lintDebug assembleDebug
 ```
 
-Output:
+The output is `app/build/outputs/apk/debug/app-debug.apk`.
 
-```text
-app/build/outputs/apk/debug/app-debug.apk
+## PC CLI
+
+The Linux package contains a real executable launcher and a Java runtime-compatible JAR. Java 17 or newer is required when running from source or the JAR.
+
+```bash
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 scan https://example.com
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 link 'https://example.com/a?next=https%3A%2F%2Fgithub.com%2F'
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 deep example.com
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 file sample.apk
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 apk sample.apk
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 hash <hash>
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 case CASE-00001
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 history
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 compare CASE-00001 CASE-00002
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 report CASE-00001
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 watch example.com
+TRACE-3.0.0-linux-x64/TRACE-3.0.0-linux-x64 gui
 ```
 
-## Usage
+Local PC cases and reports are stored under `~/.trace/cases`. Network failures are reported as `UNKNOWN / UNAVAILABLE`; saved cases, hashes, static file analysis, reports, and comparisons remain available offline.
 
-Open TRACE and use the **TERMINAL** section:
+## PC GUI
 
-```text
-$ trace scan example.com
+`trace gui` opens a native Swing workstation with terminal-centric output and dedicated sections for Dashboard, Scanner, Link Intelligence, Cases, History, Watchlist, Files, Reports, Evidence, and Settings. The GUI is intentionally dependency-free and remains usable without a backend.
 
-[+] TARGET        example.com
-[+] DNS           OK
-[+] TLS           VALID
-[+] HTTP          200
-[+] REDIRECTS     0
-[+] TECHNOLOGY    nginx
-[+] REPUTATION    3 provider modules
-[+] CASE          CASE-00001
-```
+## Watchlist and comparison
 
-All network work is asynchronous so the interface remains responsive. The **SCAN** tab provides the same full scan as a form, while **HISTORY** and **CASES** reopen locally stored evidence.
+Android uses WorkManager for periodic refresh. The PC CLI stores local watch targets and supports the same watchlist commands; native background scheduling is kept conservative in the portable client so an offline machine does not fabricate alerts. Case comparison exposes `NEW`, `REMOVED`, `CHANGED`, and `UNCHANGED` evidence categories for DNS, IP, TLS, certificates, redirects, headers, content, forms, technology, and risk.
 
-## TRACE 2.0 terminal commands
+## Reports
 
-| Command | Purpose |
-| --- | --- |
-| `trace scan <target>` | Full scan and save a local case |
-| `trace quick <target>` | Fast safe analysis |
-| `trace deep <target>` | Full intelligence pipeline |
-| `trace dns <domain>` | A / AAAA / MX / NS / TXT / CNAME records |
-| `trace tls <domain>` | Certificate and cipher information |
-| `trace headers <url>` | Response and security headers |
-| `trace redirects <url>` | Safe redirect chain |
-| `trace tech <url>` | Web server, framework, CMS, and CDN hints |
-| `trace domain <domain>` | Keyless public RDAP domain data |
-| `trace ip <host>` | IP family, reverse DNS, and scope |
-| `trace file <path>` | Local static file/APK analysis |
-| `trace hash <path-or-hash>` | Local hashes and case history lookup |
-| `trace reputation <domain>` | Provider module results |
-| `trace risk <target>` | Explainable risk assessment |
-| `trace compare <caseA> <caseB>` | Compare two local scans |
-| `trace history` | Local case list |
-| `trace case <id>` | Reopen a case |
-| `trace watch <target>` | Add a local watch target |
-| `trace unwatch <target>` | Remove a watch target |
-| `trace watches` | List watch targets |
-| `trace export <id>` | Write JSON and HTML reports |
-| `trace clear` | Clear the terminal view |
-| `trace help` | Show command help |
+Reports are available as JSON evidence bundles on Android and as local HTML reports on both clients. The report structure includes Executive Summary, What Is This Link?, Original URL, Final Destination, URL Structure, DNS, IP, TLS, HTTP, Redirects, Content, Forms, Technology, Security Hardening, Phishing, Threat Intelligence, Malware, Evidence, Timeline, Changes, and Limitations.
 
-## Keyless intelligence sources
+## Privacy and security model
 
-Provider integrations are modular and optional. TRACE never asks the user to create an account or enter an API key:
+No VirusTotal, Google Safe Browsing, or URLhaus API key is required. There is no API-key settings screen. Public or keyless sources are optional; unavailable sources remain `UNAVAILABLE` or `UNKNOWN`.
 
-- **URLhaus** is queried without a key.
-- Public DNS-over-HTTPS, RDAP, and URLhaus-compatible keyless requests are used where appropriate.
-- If a source is unavailable, rate-limited, stale, or unsupported, TRACE records that state as evidence and continues the pipeline.
-- A missing source never becomes a fabricated safe or malicious verdict.
+SSRF controls block localhost, loopback, private networks, link-local addresses, multicast/any-local addresses, internal and special-use domains, and unsafe URL schemes. Redirect destinations are revalidated. Response bodies are bounded. Files are statically inspected only.
 
-TRACE's local heuristics and static analysis remain available without network access.
-
-## Security
-
-TRACE applies the following URL safety controls before every request:
-
-- Only HTTP and HTTPS schemes are accepted.
-- User-info URLs are rejected.
-- `localhost`, `.local`, `.internal`, `.intranet`, `.lan`, and `home.arpa` names are blocked.
-- Loopback, private, link-local, multicast, any-local, IPv4 special-range, and IPv6 ULA addresses are blocked.
-- Every redirect target is normalized and validated again.
-- Redirect chains stop after eight hops.
-- Response bodies are capped at 256 KiB.
-- Network operations have connect/read timeouts.
-- APKs and files are never executed, uploaded, or passed to a sandbox bypass.
-
-TRACE is intended for targets the operator is authorized to inspect.
+Use TRACE only against systems you are authorized to inspect.
 
 ## Architecture
 
 ```text
-Android Activity
-  ├── Terminal / Scan / History / Cases / Reports / Settings UI
-  ├── TraceScanner
-  │     ├── URL + SSRF validation
-  │     ├── HTTP/redirect collector
-  │     ├── DNS-over-HTTPS collector
-  │     ├── TLS certificate collector
-  │     ├── Technology detector
-  │     └── Reputation provider modules
-  ├── RiskEngine / ContentAnalyzer / MalwareGuard
-  ├── WatchWorker (WorkManager) + WatchlistStore
-  └── CaseStore (SharedPreferences + app-private Documents export)
+TRACE Core (dependency-free Java)
+  ├── URL policy and normalization
+  ├── link structure and page classification
+  └── risk vocabulary
+
+Android client
+  ├── TraceScanner + DNS/TLS/HTTP/content/reputation modules
+  ├── RiskEngine / MalwareGuard / EvidenceGraph
+  ├── CaseStore / reports / WorkManager watchlist
+  └── terminal-first native UI
+
+PC client
+  ├── TracePc CLI and Swing GUI
+  ├── HTTP redirect and evidence collector
+  ├── static file/hash Malware Guard
+  └── ~/.trace local cases and reports
 ```
 
-The base application has no continuously running backend and no required cloud service. Android's app storage provides persistence after restart; all analysis traffic originates from the device.
+## Build matrix and limitations
 
-## Reports
+The repository has Android CI plus a PC matrix for Windows x64, Linux x64, macOS ARM64, and macOS x64. The Linux package is built and smoke-tested in the current environment. Windows and macOS native packages are produced only by their respective GitHub-hosted runners; if a runner or native packager fails, that platform is omitted from the release rather than represented by a placeholder.
 
-Each export creates:
+This sandbox cannot emulate Android UI instrumentation or validate Windows/macOS binaries locally. The CI workflow is the source of truth for those platform builds.
 
-```text
-case.json       case metadata plus results
-evidence.json   scanner evidence bundle
-report.html     standalone dark HTML report
-```
+## Release history
 
-Exports are written to the app-specific Documents directory, which does not require broad storage permission.
+Existing releases and tags are preserved. TRACE 3.0 is published as a new `v3.0.0` release; previous v1.x and v2.x artifacts are not rewritten or deleted.
 
 ## License
 
