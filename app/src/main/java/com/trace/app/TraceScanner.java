@@ -61,7 +61,23 @@ public final class TraceScanner {
         result.put("technology", technology(fetch.headers, fetch.body));
         result.put("securityHeaders", securityHeaders(fetch.headers));
         result.put("reputation", reputation(new URL(url).getHost()));
+        result.put("content", ContentAnalyzer.analyze(url, fetch.body));
+        result.put("ip", ipIntelligence(new URL(url).getHost()));
+        result.put("domain", domainIntelligence(new URL(url).getHost()));
+        result.put("risk", RiskEngine.evaluate(result));
+        result.put("evidenceGraph", IntelligenceUtils.graph(result));
         return result;
+    }
+
+    public JSONObject quick(String target) throws Exception { return scan(target); }
+    public JSONObject deep(String target) throws Exception { return scan(target); }
+
+    public JSONObject ip(String rawHost) throws Exception {
+        String host = normalizeDomain(rawHost); validatePublicHost(host); return ipIntelligence(host);
+    }
+
+    public JSONObject domain(String rawDomain) throws Exception {
+        String domain = normalizeDomain(rawDomain); validatePublicHost(domain); return domainIntelligence(domain);
     }
 
     public JSONObject dns(String rawDomain) throws Exception {
@@ -70,9 +86,14 @@ public final class TraceScanner {
         JSONObject result = new JSONObject();
         result.put("domain", domain);
         JSONObject records = new JSONObject();
-        for (String type : new String[]{"A", "AAAA", "MX", "NS", "TXT", "CNAME"}) {
+        for (String type : new String[]{"A", "AAAA", "MX", "NS", "TXT", "CNAME", "SOA", "CAA", "PTR"}) {
             records.put(type, doh(domain, type));
         }
+        JSONObject flags = new JSONObject();
+        flags.put("SPF", records.optJSONArray("TXT") != null && records.optJSONArray("TXT").toString().toLowerCase(Locale.US).contains("v=spf1"));
+        flags.put("DMARC", doh("_dmarc." + domain, "TXT").length() > 0);
+        flags.put("DNSSEC", "NOT AVAILABLE");
+        result.put("checks", flags);
         result.put("records", records);
         return result;
     }
@@ -336,6 +357,37 @@ public final class TraceScanner {
             out.put("matches", body.isEmpty() ? 0 : new JSONObject(body).optJSONArray("matches") == null ? 0 : new JSONObject(body).optJSONArray("matches").length());
             return out;
         } catch (Exception e) { return providerState("Google Safe Browsing", "error", safeMessage(e)); }
+    }
+
+    private JSONObject ipIntelligence(String host) throws Exception {
+        JSONObject out = new JSONObject(); JSONArray addresses = new JSONArray();
+        for (InetAddress address : InetAddress.getAllByName(host)) {
+            JSONObject item = new JSONObject();
+            item.put("address", address.getHostAddress());
+            item.put("reverseDns", address.getCanonicalHostName());
+            item.put("family", address.getAddress().length == 16 ? "IPv6" : "IPv4");
+            item.put("scope", isBlocked(address) ? "BLOCKED" : "PUBLIC");
+            addresses.put(item);
+        }
+        out.put("host", host); out.put("addresses", addresses); out.put("asn", "UNKNOWN"); out.put("organization", "UNKNOWN");
+        return out;
+    }
+
+    private JSONObject domainIntelligence(String domain) {
+        JSONObject out = new JSONObject();
+        try {
+            HttpURLConnection connection = (HttpURLConnection) new URL("https://rdap.org/domain/" + URLEncoder.encode(domain, "UTF-8")).openConnection();
+            configure(connection); int status = connection.getResponseCode();
+            String body = readLimited(status >= 400 ? connection.getErrorStream() : connection.getInputStream(), 131072);
+            connection.disconnect();
+            out.put("domain", domain); out.put("source", "RDAP"); out.put("status", status >= 200 && status < 300 ? "AVAILABLE" : "UNAVAILABLE");
+            if (!body.isEmpty() && status >= 200 && status < 300) {
+                JSONObject root = new JSONObject(body); out.put("registrar", root.optJSONArray("entities") == null ? "UNKNOWN" : "SEE_ENTITIES");
+                out.put("events", root.optJSONArray("events") == null ? new JSONArray() : root.optJSONArray("events"));
+                out.put("nameservers", root.optJSONArray("nameservers") == null ? new JSONArray() : root.optJSONArray("nameservers"));
+            }
+        } catch (Exception e) { try { out.put("domain", domain); out.put("status", "UNAVAILABLE"); out.put("reason", safeMessage(e)); } catch (Exception ignored) {} }
+        return out;
     }
 
     private static JSONObject providerState(String provider, String status, String detail) {
