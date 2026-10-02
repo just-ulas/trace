@@ -10,7 +10,7 @@ public final class Trace31 {
 
     public enum Mode { BEGINNER, STANDARD, DEVELOPER }
     public enum SourceState { AVAILABLE, UNAVAILABLE, FAILED, STALE, NOT_QUERIED, LOCAL }
-    public enum Verdict { RELIABLE, SUSPICIOUS, THREAT, UNVERIFIED }
+    public enum Verdict { RELIABLE, HARDENING, SUSPICIOUS, THREAT, UNVERIFIED }
 
     public record SourceDiagnostic(String name, SourceState state, String detail) {}
     public record Timing(String stage, long millis) {}
@@ -39,24 +39,28 @@ public final class Trace31 {
         Verdict v = switch (r) {
             case "THREAT" -> Verdict.THREAT;
             case "SUSPICIOUS" -> Verdict.SUSPICIOUS;
-            case "INFORMATIONAL", "HARDENING" -> confidence >= 55 && evidenceCount > 0 ? Verdict.RELIABLE : Verdict.UNVERIFIED;
+            case "HARDENING" -> Verdict.HARDENING;
+            case "INFORMATIONAL" -> confidence >= 55 && evidenceCount > 0 ? Verdict.RELIABLE : Verdict.UNVERIFIED;
             default -> Verdict.UNVERIFIED;
         };
         if (unknownCount > evidenceCount && v != Verdict.THREAT) v = Verdict.UNVERIFIED;
         String label = switch (v) {
             case RELIABLE -> "RELIABLE / GÜVENİLİR GÖRÜNÜYOR";
+            case HARDENING -> "HARDENING / GÜVENLİK EKSİKLERİ VAR";
             case SUSPICIOUS -> "SUSPICIOUS / ŞÜPHELİ";
             case THREAT -> "THREAT / TEHDİT BULGUSU";
             case UNVERIFIED -> "UNVERIFIED / GÜVENİLİRLİK DOĞRULANAMADI";
         };
         String why = switch (v) {
             case RELIABLE -> "Available evidence shows no clear malicious indicator. This is not a security guarantee.";
+            case HARDENING -> "No threat-level evidence was established, but observable security controls are missing or incomplete.";
             case SUSPICIOUS -> "One or more heuristic or phishing indicators require review.";
             case THREAT -> "Evidence contains a threat-level indicator. Do not interact with the target.";
             case UNVERIFIED -> "The available evidence is insufficient to verify reliability; UNKNOWN is not SAFE.";
         };
         String action = switch (v) {
             case RELIABLE -> "Normal use shows no clear threat indicator, but remain cautious.";
+            case HARDENING -> "Normal use may be possible, but review the missing security controls before relying on this target.";
             case SUSPICIOUS -> "Verify the domain before entering passwords or payment information.";
             case THREAT -> "Close the connection before interacting with this target.";
             case UNVERIFIED -> "The scan could not establish a security decision; do not infer safety.";
