@@ -18,6 +18,10 @@ import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
+import java.util.concurrent.TimeUnit;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -46,6 +50,8 @@ public final class MainActivity extends android.app.Activity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private CaseStore store;
     private TraceScanner scanner;
+    private WatchlistStore watchlist;
+    private ThreatFeedCache feedCache;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +60,10 @@ public final class MainActivity extends android.app.Activity {
         getWindow().setNavigationBarColor(BG);
         store = new CaseStore(this);
         scanner = new TraceScanner(this);
+        watchlist = new WatchlistStore(this);
+        feedCache = new ThreatFeedCache(this);
+        PeriodicWorkRequest watchWork = new PeriodicWorkRequest.Builder(WatchWorker.class, 24, TimeUnit.HOURS).build();
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork("trace-watchlist", ExistingPeriodicWorkPolicy.KEEP, watchWork);
         buildShell();
         showTerminal();
     }
@@ -80,7 +90,7 @@ public final class MainActivity extends android.app.Activity {
         header.addView(status, new LinearLayout.LayoutParams(-2, dp(40)));
         root.addView(header);
 
-        TextView subtitle = label("LOCAL-FIRST  /  WEB INTELLIGENCE  /  v1.0.0", 10, MUTED);
+        TextView subtitle = label("LOCAL-FIRST  /  SECURITY INTELLIGENCE  /  v2.0.0", 10, MUTED);
         subtitle.setPadding(0, 0, 0, dp(10));
         root.addView(subtitle);
 
@@ -88,11 +98,12 @@ public final class MainActivity extends android.app.Activity {
         navScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
-        String[] sections = {"TERMINAL", "SCAN", "HISTORY", "CASES", "REPORTS", "SETTINGS"};
+        String[] sections = {"DASHBOARD", "TERMINAL", "SCAN", "HISTORY", "CASES", "REPORTS", "SETTINGS"};
         for (String section : sections) {
             Button button = button(section, 10, section.equals("TERMINAL") ? GREEN : MUTED);
             button.setOnClickListener(v -> {
                 switch (section) {
+                    case "DASHBOARD": showDashboard(); break;
                     case "TERMINAL": showTerminal(); break;
                     case "SCAN": showScan(); break;
                     case "HISTORY": showHistory(); break;
@@ -183,15 +194,27 @@ public final class MainActivity extends android.app.Activity {
             switch (action) {
                 case "help": return helpText();
                 case "scan": return scanCommand(argument);
+                case "quick": return profileCommand(argument, false);
+                case "deep": return profileCommand(argument, true);
                 case "dns": return compactJson(scanner.dns(argument));
                 case "tls": return compactJson(scanner.tls(argument));
                 case "headers": return compactJson(scanner.headers(argument));
                 case "redirects": return compactJson(scanner.redirects(argument));
                 case "tech": return compactJson(scanner.tech(argument));
+                case "domain": return compactJson(scanner.domain(argument));
+                case "ip": return compactJson(scanner.ip(argument));
                 case "reputation": return compactJson(scanner.reputation(argument));
+                case "risk": return compactJson(scanner.scan(argument).optJSONObject("risk"));
+                case "file": return compactJson(MalwareGuard.analyze(this, argument));
+                case "hash": return hashCommand(argument);
+                case "compare": return compareCommand(argument);
                 case "history": return historyText();
                 case "case": return caseText(argument);
+                case "watch": watchlist.add(argument); return "[+] WATCHLIST  " + argument;
+                case "unwatch": watchlist.remove(argument); return "[+] UNWATCHED  " + argument;
+                case "watches": return watchText();
                 case "export": return exportText(argument);
+                case "report": return exportText(argument);
                 case "clear": return "";
                 default: return "[-] Unknown command. Type `trace help`.";
             }
@@ -203,8 +226,45 @@ public final class MainActivity extends android.app.Activity {
     private String scanCommand(String target) throws Exception {
         if (target.isEmpty()) throw new IllegalArgumentException("Usage: trace scan <target>");
         JSONObject result = scanner.scan(target);
+        feedCache.mark("AVAILABLE");
         TraceCase traceCase = store.save(target, result);
         return formatScan(result, traceCase.id);
+    }
+
+    private String profileCommand(String target, boolean deep) throws Exception {
+        if (target.isEmpty()) throw new IllegalArgumentException("Usage: trace " + (deep ? "deep" : "quick") + " <target>");
+        JSONObject result = deep ? scanner.deep(target) : scanner.quick(target);
+        TraceCase traceCase = store.save(target, result);
+        return "[+] PROFILE       " + (deep ? "DEEP" : "QUICK") + "\n" + formatScan(result, traceCase.id);
+    }
+
+    private String hashCommand(String value) {
+        if (value.isEmpty()) return "Usage: trace hash <file-path>";
+        java.io.File file = new java.io.File(value);
+        if (file.exists()) return compactJson(MalwareGuard.analyze(this, value));
+        for (TraceCase c : store.all()) if (c.resultsJson.toLowerCase(Locale.US).contains(value.toLowerCase(Locale.US))) return "[+] HASH MATCH  " + c.id;
+        return "[i] HASH UNKNOWN  No local evidence matched this value; no keyless public source available.";
+    }
+
+    private String compareCommand(String args) {
+        String[] ids = args.trim().split("\\s+");
+        if (ids.length < 2) return "Usage: trace compare <caseA> <caseB>";
+        TraceCase a = store.find(ids[0]), b = store.find(ids[1]);
+        if (a == null || b == null) return "[-] Both case IDs must exist locally.";
+        return compactJson(IntelligenceUtils.compare(parse(a.resultsJson), parse(b.resultsJson)));
+    }
+
+    private String watchText() { StringBuilder out=new StringBuilder("[+] WATCHLIST\n"); for(String target:watchlist.all()) out.append("• ").append(target).append('\n'); return out.toString(); }
+
+    private void showDashboard() {
+        content.removeAllViews(); LinearLayout page=page();
+        page.addView(sectionHeading("DASHBOARD", "Local posture overview; no provider account or API key required."));
+        List<TraceCase> cases=store.all();
+        StringBuilder text=new StringBuilder(); text.append("TOTAL SCANS   ").append(cases.size()).append("\n\nRECENT CASES\n");
+        for(int i=0;i<Math.min(5,cases.size());i++) text.append(cases.get(i).id).append("  ").append(cases.get(i).target).append('\n');
+        text.append("\nWATCHLIST\n").append(watchText()).append("\nFEED CACHE\n").append(compactJson(feedCache.status()));
+        TextView output=label(text.toString(),13,TEXT); output.setTypeface(Typeface.MONOSPACE); output.setPadding(dp(14),dp(14),dp(14),dp(14)); output.setBackground(panelBackground(PANEL,BORDER));
+        page.addView(output,new LinearLayout.LayoutParams(-1,0,1)); content.addView(page);
     }
 
     private void showScan() {
@@ -349,25 +409,25 @@ public final class MainActivity extends android.app.Activity {
     private void showSettings() {
         content.removeAllViews();
         LinearLayout page = page();
-        page.addView(sectionHeading("SETTINGS", "Provider keys are stored only in Android app storage and never in source or cases."));
+        page.addView(sectionHeading("SETTINGS", "No provider account or API key is required."));
         SharedPreferences prefs = getSharedPreferences("trace_settings", MODE_PRIVATE);
-        EditText virusTotal = edit("VirusTotal API key (optional)", true);
-        virusTotal.setText(prefs.getString("provider_virustotal", ""));
-        EditText google = edit("Google Safe Browsing API key (optional)", true);
-        google.setText(prefs.getString("provider_google", ""));
-        page.addView(virusTotal, new LinearLayout.LayoutParams(-1, dp(50)));
-        page.addView(google, new LinearLayout.LayoutParams(-1, dp(50)));
-        Button save = button("SAVE PROVIDER SETTINGS", 11, BG);
+        EditText timeout = edit("Scan timeout (seconds)", false); timeout.setText(prefs.getString("timeout", "9"));
+        EditText bodyLimit = edit("Body size limit (KiB)", false); bodyLimit.setText(prefs.getString("bodyLimit", "256"));
+        EditText watchInterval = edit("Background watch interval (hours)", false); watchInterval.setText(prefs.getString("watchInterval", "24"));
+        page.addView(timeout, new LinearLayout.LayoutParams(-1, dp(50)));
+        page.addView(bodyLimit, new LinearLayout.LayoutParams(-1, dp(50)));
+        page.addView(watchInterval, new LinearLayout.LayoutParams(-1, dp(50)));
+        Button save = button("SAVE LOCAL SETTINGS", 11, BG);
         save.setTextColor(BG);
         save.setBackground(panelBackground(GREEN, GREEN));
         LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(-1, dp(46));
         saveParams.setMargins(0, dp(10), 0, dp(18));
         page.addView(save, saveParams);
-        TextView note = label("URLhaus is queried without a key. Core DNS, TLS, HTTP, redirects, headers, and technology checks use the device connection directly.\n\nSafety policy\n• HTTP/HTTPS only\n• Loopback, private, link-local, internal hostnames blocked\n• Redirect targets revalidated\n• No exploit, brute force, credential, DDoS, or evasion features", 12, MUTED);
+        TextView note = label("Privacy\n• Cases and file analysis stay in Android app-private storage.\n• Files are hashed and inspected locally; they are never uploaded.\n• Public sources are optional and keyless; unavailable sources remain UNKNOWN.\n\nSafety policy\n• HTTP/HTTPS only\n• Loopback, private, link-local, internal and special-use targets blocked\n• Redirect targets revalidated\n• No exploit, brute force, credential, DDoS, stealth or evasion features", 12, MUTED);
         note.setTypeface(Typeface.MONOSPACE);
         page.addView(note);
         save.setOnClickListener(v -> {
-            prefs.edit().putString("provider_virustotal", virusTotal.getText().toString().trim()).putString("provider_google", google.getText().toString().trim()).apply();
+            prefs.edit().putString("timeout", timeout.getText().toString().trim()).putString("bodyLimit", bodyLimit.getText().toString().trim()).putString("watchInterval", watchInterval.getText().toString().trim()).apply();
             save.setText("SAVED LOCALLY");
         });
         content.addView(page);
@@ -407,6 +467,7 @@ public final class MainActivity extends android.app.Activity {
         JSONArray technologies = tech == null ? null : tech.optJSONArray("technologies");
         String technology = technologies == null || technologies.length() == 0 ? "unknown" : technologies.optString(0, "unknown");
         int providerCount = reputation == null || reputation.optJSONArray("providers") == null ? 0 : reputation.optJSONArray("providers").length();
+        JSONObject risk = result.optJSONObject("risk");
         return "[+] TARGET        " + result.optString("target") + "\n"
                 + "[+] DNS           " + (dns == null ? "ERROR" : "OK") + "\n"
                 + "[+] TLS           " + tlsStatus + "\n"
@@ -414,6 +475,8 @@ public final class MainActivity extends android.app.Activity {
                 + "[+] REDIRECTS     " + redirectCount + "\n"
                 + "[+] TECHNOLOGY    " + technology + "\n"
                 + "[+] REPUTATION    " + providerCount + " provider modules\n"
+                + "[+] RISK          " + (risk == null ? "UNKNOWN" : risk.optString("severity", "UNKNOWN")) + "\n"
+                + "[+] CONFIDENCE    " + (risk == null ? "UNKNOWN" : risk.optString("confidence", "UNKNOWN")) + "\n"
                 + "[+] CASE          " + caseId;
     }
 
@@ -507,14 +570,25 @@ public final class MainActivity extends android.app.Activity {
         return "TRACE COMMANDS\n"
                 + "────────────────────────────────────\n"
                 + "trace scan <target>        full evidence bundle + save case\n"
+                + "trace quick <target>       fast safe analysis\n"
+                + "trace deep <target>        full intelligence pipeline\n"
                 + "trace dns <domain>          A / AAAA / MX / NS / TXT / CNAME\n"
                 + "trace tls <domain>          certificate and cipher details\n"
                 + "trace headers <url>         response and security headers\n"
                 + "trace redirects <url>       safe redirect chain\n"
                 + "trace tech <url>            server and framework hints\n"
+                + "trace domain <domain>       public RDAP data\n"
+                + "trace ip <host>             IP and reverse DNS\n"
+                + "trace file <path>           local static file/APK analysis\n"
+                + "trace hash <path-or-hash>   local hash history\n"
                 + "trace reputation <domain>  provider modules\n"
+                + "trace risk <target>         explainable risk assessment\n"
+                + "trace compare <a> <b>       compare local cases\n"
                 + "trace history               local case list\n"
                 + "trace case <id>             reopen a case\n"
+                + "trace watch <target>        add to local watchlist\n"
+                + "trace unwatch <target>      remove from watchlist\n"
+                + "trace watches               list watchlist\n"
                 + "trace export <id>           JSON + HTML report\n"
                 + "trace clear                 clear terminal output\n"
                 + "trace help                  show this help\n\n"

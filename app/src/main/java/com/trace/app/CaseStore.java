@@ -103,11 +103,17 @@ public final class CaseStore {
         } catch (JSONException e) {
             json = escape(object.toString());
         }
+        JSONObject risk = object.optJSONObject("risk");
+        String severity = risk == null ? "UNKNOWN" : risk.optString("severity", "UNKNOWN");
+        String confidence = risk == null ? "UNKNOWN" : risk.optString("confidence", "UNKNOWN");
+        String findings = risk == null ? "[]" : risk.optJSONArray("findings") == null ? "[]" : risk.optJSONArray("findings").toString();
         return "<!doctype html><html><head><meta charset=\"utf-8\"><title>TRACE "
                 + escape(traceCase.id) + "</title><style>body{background:#080c0f;color:#d7e6dd;font:14px monospace;padding:32px}h1{color:#66e3a6}pre{background:#10191d;padding:20px;border:1px solid #273a40;overflow:auto;white-space:pre-wrap}.meta{color:#91a89b}</style></head><body>"
-                + "<h1>TRACE / " + escape(traceCase.id) + "</h1><p class=\"meta\">Target: "
+                + "<h1>TRACE SECURITY REPORT / " + escape(traceCase.id) + "</h1><p class=\"meta\">Target: "
                 + escape(traceCase.target) + "<br>Captured: " + escape(traceCase.timestamp)
-                + "</p><pre>" + json + "</pre></body></html>";
+                + "</p><h2>RISK OVERVIEW</h2><p>Severity: <b>" + escape(severity) + "</b><br>Confidence: " + escape(confidence) + "</p>"
+                + "<h2>KEY FINDINGS</h2><pre>" + escape(findings) + "</pre><h2>EVIDENCE / DNS / IP / TLS / HTTP / CONTENT / TECHNOLOGY / SOURCES</h2><pre>"
+                + json + "</pre><h2>REALITY RULE</h2><p class=\"meta\">UNKNOWN is not SAFE. SUSPICIOUS is not MALWARE. Evidence is collected at the timestamp above.</p></body></html>";
     }
 
     private static String escape(String value) {
